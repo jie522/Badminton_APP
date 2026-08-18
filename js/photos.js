@@ -146,7 +146,7 @@ const Photos = {
       document.getElementById('lb-next').addEventListener('click', () => { i++; draw(); });
       document.getElementById('lb-close').addEventListener('click', close);
       document.getElementById('lb-del').addEventListener('click', async () => {
-        if (!confirm('刪除這張照片?(Drive 上的檔案會移到垃圾桶)')) return;
+        if (!await ask('刪除這張照片?\n(Drive 上的檔案會移到垃圾桶)')) return;
         const id = photos[i].id;
         const list = Sessions.list();
         const cur = list.find(x => x.id === sessionId);

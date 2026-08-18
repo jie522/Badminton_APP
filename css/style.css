@@ -1,3 +1,24 @@
+/* ============ 主題色票 ============
+ * 每個主題色都要同時定義淺色(-l)和深色(-d)兩組值,
+ * 下面的 --accent 再依「目前是淺色還是深色」挑一組來用。
+ */
+:root {
+  --a-l: #12967c;  --a2-l: #0b6f5c;  --as-l: #e4f5f0;
+  --a-d: #2fd0a8;  --a2-d: #12967c;  --as-d: #17342e;
+}
+:root[data-accent="blue"] {
+  --a-l: #1668c9;  --a2-l: #0d4a94;  --as-l: #e6eefb;
+  --a-d: #5aa9ff;  --a2-d: #1668c9;  --as-d: #16283f;
+}
+:root[data-accent="orange"] {
+  --a-l: #d9622b;  --a2-l: #a8461a;  --as-l: #fdece2;
+  --a-d: #ff9457;  --a2-d: #d9622b;  --as-d: #3a2418;
+}
+:root[data-accent="purple"] {
+  --a-l: #7a4bd0;  --a2-l: #5a32a3;  --as-l: #efe8fc;
+  --a-d: #b18aff;  --a2-d: #7a4bd0;  --as-d: #2a1f45;
+}
+
 /* ============ 基礎 ============ */
 :root {
   --bg: #f4f5f7;
@@ -5,28 +26,56 @@
   --text: #1a1d29;
   --text2: #6b7280;
   --border: #e5e7eb;
-  --accent: #12967c;        /* 羽球場地綠 */
-  --accent-soft: #e4f5f0;
-  --in: #0f9d58;            /* 收入 */
-  --out: #e0342f;           /* 支出 */
+  --accent: var(--a-l);       /* 羽球場地綠(可在設定頁換色) */
+  --accent-2: var(--a2-l);    /* 漸層用的深一階 */
+  --accent-soft: var(--as-l);
+  --in: #0f9d58;              /* 收入 */
+  --out: #e0342f;             /* 支出 */
   --warn: #d97706;
+  --in-soft: rgba(15,157,88,.12);
+  --out-soft: rgba(224,52,47,.12);
+  --warn-soft: rgba(217,119,6,.14);
   --shadow: 0 1px 4px rgba(0,0,0,.08);
   --radius: 14px;
 }
+
+/* 深色:沒手動指定淺色時跟著系統走 */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #12141c;
     --card: #1e2130;
     --text: #eceef4;
     --text2: #9aa0b0;
     --border: #2c3042;
-    --accent: #2fd0a8;
-    --accent-soft: #17342e;
+    --accent: var(--a-d);
+    --accent-2: var(--a2-d);
+    --accent-soft: var(--as-d);
     --in: #2ecc80;
     --out: #ff5f57;
     --warn: #f0b429;
+    --in-soft: rgba(46,204,128,.16);
+    --out-soft: rgba(255,95,87,.16);
+    --warn-soft: rgba(240,180,41,.16);
     --shadow: 0 1px 4px rgba(0,0,0,.35);
   }
+}
+/* 深色:設定頁手動選的,不管系統怎麼設 */
+:root[data-theme="dark"] {
+  --bg: #12141c;
+  --card: #1e2130;
+  --text: #eceef4;
+  --text2: #9aa0b0;
+  --border: #2c3042;
+  --accent: var(--a-d);
+  --accent-2: var(--a2-d);
+  --accent-soft: var(--as-d);
+  --in: #2ecc80;
+  --out: #ff5f57;
+  --warn: #f0b429;
+  --in-soft: rgba(46,204,128,.16);
+  --out-soft: rgba(255,95,87,.16);
+  --warn-soft: rgba(240,180,41,.16);
+  --shadow: 0 1px 4px rgba(0,0,0,.35);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -37,6 +86,7 @@ body {
   color: var(--text);
   padding-bottom: calc(64px + env(safe-area-inset-bottom));
   min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
 }
 a { color: var(--accent); }
 button { font-family: inherit; cursor: pointer; }
@@ -47,13 +97,24 @@ input, textarea, select {
   padding: 10px 12px; width: 100%;
 }
 input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .hidden { display: none !important; }
 .num { font-variant-numeric: tabular-nums; }
+
+/* ============ 按下去的回饋 ============ */
+.btn, .pick, .row-card, .segmented button, .type-picker button,
+.g-paid, .fab, .icon-btn, .link-btn, .tab, .swatch, .alert-bar {
+  transition: transform .1s ease, background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.btn:active, .pick:active, .row-card:active, .segmented button:active,
+.type-picker button:active, .g-paid:active, .icon-btn:active,
+.tab:active, .swatch:active, .alert-bar:active { transform: scale(.97); }
+.fab:active { transform: scale(.92); }
 
 /* ============ 頁首 / 頁籤 ============ */
 .app-header {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 14px 16px 10px;
   padding-top: calc(14px + env(safe-area-inset-top));
   background: var(--bg);
@@ -64,6 +125,34 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); bo
   border: none; background: var(--accent); color: #fff;
   font-size: 22px; line-height: 1; box-shadow: var(--shadow);
 }
+
+/* 頁首右上角的同步狀態 */
+.sync-btn {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  border: 1px solid var(--border); background: var(--card); color: var(--text2);
+  border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600;
+  min-height: 34px;
+}
+.sync-btn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text2); flex-shrink: 0; }
+.sync-btn.on { color: var(--in); border-color: var(--in-soft); }
+.sync-btn.on .dot { background: var(--in); }
+.sync-btn.busy { color: var(--accent); border-color: var(--accent); }
+.sync-btn.busy .dot { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+.sync-btn.err { color: var(--out); border-color: var(--out); }
+.sync-btn.err .dot { background: var(--out); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* 右下角浮動新增鈕:單手好按 */
+.fab {
+  position: fixed; right: 16px; z-index: 20;
+  bottom: calc(74px + env(safe-area-inset-bottom));
+  width: 56px; height: 56px; border-radius: 50%;
+  border: none; background: var(--accent); color: #fff;
+  font-size: 30px; line-height: 1; font-weight: 400;
+  box-shadow: 0 4px 14px rgba(0,0,0,.22);
+  display: flex; align-items: center; justify-content: center;
+}
+
 .tab-bar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
   display: flex;
@@ -80,7 +169,8 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); bo
 
 main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .page { display: none; }
-.page.active { display: block; }
+.page.active { display: block; animation: pageIn .18s ease; }
+@keyframes pageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .page-hint { margin: 0 2px 12px; }
 
 /* ============ 分段選單 ============ */
@@ -92,9 +182,43 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .segmented button {
   border: none; background: var(--card); color: var(--text2);
   padding: 8px 16px; border-radius: 999px; font-size: 14px;
-  white-space: nowrap; box-shadow: var(--shadow);
+  white-space: nowrap; box-shadow: var(--shadow); min-height: 38px;
 }
 .segmented button.active { background: var(--accent); color: #fff; font-weight: 700; }
+
+/* ============ 搜尋框 ============ */
+.search-box { position: relative; margin: 2px 0 12px; }
+.search-box input {
+  background: var(--card); border-color: transparent; box-shadow: var(--shadow);
+  padding: 10px 38px; font-size: 15px; min-height: 42px;
+}
+.search-box .s-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 15px; color: var(--text2); pointer-events: none;
+}
+.search-box .s-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  border: none; background: none; color: var(--text2); font-size: 16px;
+  width: 30px; height: 30px; border-radius: 50%;
+}
+
+/* ============ 提醒橫條(未收款) ============ */
+.alert-bar {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--warn-soft); color: var(--warn);
+  border: none; border-radius: 12px; padding: 11px 14px; margin: 0 0 12px;
+  font-size: 14px; font-weight: 700; min-height: 44px;
+}
+.alert-bar .a-icon { font-size: 16px; flex-shrink: 0; }
+.alert-bar .a-text { flex: 1; min-width: 0; }
+.alert-bar .a-arrow { font-size: 12px; opacity: .7; transition: transform .18s ease; }
+.alert-bar.open .a-arrow { transform: rotate(90deg); }
+.alert-list {
+  background: var(--card); border-radius: 12px; padding: 8px 10px;
+  margin: -4px 0 12px; box-shadow: var(--shadow);
+}
+.alert-list .guest-row:last-child { margin-bottom: 0; }
+.alert-list .g-when { font-size: 12px; color: var(--text2); flex-shrink: 0; }
 
 /* ============ 卡片清單 ============ */
 .card-list { display: flex; flex-direction: column; gap: 10px; }
@@ -116,13 +240,24 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .row-amount.out { color: var(--out); }
 .row-note { font-size: 11px; color: var(--text2); margin-top: 2px; }
 
+/* 名字首字做的頭像色塊 */
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; color: #fff;
+  background: var(--av, var(--accent));
+}
+.avatar.sm { width: 30px; height: 30px; font-size: 13px; }
+.avatar.lg { width: 56px; height: 56px; font-size: 22px; }
+.avatar.dim { opacity: .45; }
+
 .chip {
   font-size: 11px; padding: 2px 8px; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent); font-weight: 700;
 }
-.chip.guest { background: rgba(217,119,6,.14); color: var(--warn); }
-.chip.unpaid { background: rgba(224,52,47,.12); color: var(--out); }
-.chip.paid { background: rgba(15,157,88,.12); color: var(--in); }
+.chip.guest { background: var(--warn-soft); color: var(--warn); }
+.chip.unpaid { background: var(--out-soft); color: var(--out); }
+.chip.paid { background: var(--in-soft); color: var(--in); }
 .chip.off { background: var(--bg); color: var(--text2); }
 
 /* ============ 統計格 ============ */
@@ -138,7 +273,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 
 /* ============ 餘額卡 ============ */
 .balance-card {
-  background: linear-gradient(135deg, var(--accent), #0b6f5c);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: #fff; border-radius: 18px; padding: 18px 18px 16px;
   margin: 2px 0 14px; box-shadow: var(--shadow);
 }
@@ -148,22 +283,63 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .balance-sub b { display: block; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .balance-sub span { opacity: .85; }
 
+/* ============ 圖表 ============ */
+.chart-card {
+  background: var(--card); border-radius: var(--radius); padding: 14px 14px 10px;
+  margin: 0 0 14px; box-shadow: var(--shadow);
+}
+.chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.chart-title { font-size: 14px; font-weight: 700; }
+.chart-legend { font-size: 11px; color: var(--text2); display: flex; gap: 10px; }
+.chart-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.chart-legend i.in { background: var(--in); }
+.chart-legend i.out { background: var(--out); }
+.chart-bars { display: flex; align-items: flex-end; gap: 6px; }
+.cbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.cbar-stack { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 84px; width: 100%; }
+.cbar-stack i {
+  display: block; width: 10px; min-height: 3px; border-radius: 3px 3px 0 0;
+  transition: height .3s ease;
+}
+.cbar-stack i.in { background: var(--in); }
+.cbar-stack i.out { background: var(--out); }
+.cbar .m { font-size: 10px; color: var(--text2); white-space: nowrap; }
+.cbar .net { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cbar .net.in { color: var(--in); }
+.cbar .net.out { color: var(--out); }
+
+/* 季費繳納進度環 */
+.ring-row { display: flex; align-items: center; gap: 16px; }
+.ring-wrap { position: relative; flex-shrink: 0; width: 78px; height: 78px; }
+.ring { transform: rotate(-90deg); display: block; }
+.ring .track { fill: none; stroke: var(--bg); stroke-width: 9; }
+.ring .bar {
+  fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round;
+  transition: stroke-dashoffset .5s ease;
+}
+.ring-pct {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.ring-info { min-width: 0; font-size: 13px; color: var(--text2); line-height: 1.8; }
+.ring-info b { color: var(--text); font-variant-numeric: tabular-nums; }
+
 /* ============ 季別卡 ============ */
 .season-card { padding: 14px 16px; }
 .season-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .season-name { font-size: 16px; font-weight: 800; }
 .season-range { font-size: 12px; color: var(--text2); margin-top: 2px; }
 .season-bar { height: 8px; border-radius: 999px; background: var(--bg); margin: 12px 0 6px; overflow: hidden; }
-.season-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.season-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .4s ease; }
 .season-pay { font-size: 13px; color: var(--text2); }
 .season-pay b { color: var(--text); }
-.link-btn { border: none; background: none; color: var(--accent); font-size: 13px; font-weight: 700; padding: 4px 0; }
+.link-btn { border: none; background: none; color: var(--accent); font-size: 13px; font-weight: 700; padding: 6px 0; }
 
 /* ============ 出席勾選 ============ */
 .pick-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .pick {
   border: 1px solid var(--border); background: var(--bg); color: var(--text2);
-  border-radius: 999px; padding: 8px 14px; font-size: 14px;
+  border-radius: 999px; padding: 8px 14px; font-size: 14px; min-height: 38px;
 }
 .pick.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 
@@ -172,12 +348,15 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   display: flex; align-items: center; gap: 8px;
   background: var(--bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px;
 }
-.guest-row .g-name { flex: 1; font-size: 14px; font-weight: 600; min-width: 0; }
+.guest-row .g-name { flex: 1; font-size: 14px; font-weight: 600; min-width: 0;
+  display: flex; align-items: center; gap: 6px; }
 .guest-row input[type="number"] { width: 82px; padding: 6px 8px; font-size: 14px; text-align: right; }
-.guest-row .g-paid { border: 1px solid var(--border); background: var(--card); color: var(--text2);
-  border-radius: 8px; font-size: 12px; padding: 6px 9px; white-space: nowrap; }
-.guest-row .g-paid.on { background: rgba(15,157,88,.14); border-color: var(--in); color: var(--in); font-weight: 700; }
-.guest-row .g-del { border: none; background: none; color: var(--text2); font-size: 15px; padding: 2px 4px; }
+.guest-row .g-paid {
+  border: 1px solid var(--border); background: var(--card); color: var(--text2);
+  border-radius: 8px; font-size: 12px; padding: 6px 9px; white-space: nowrap; min-height: 34px;
+}
+.guest-row .g-paid.on { background: var(--in-soft); border-color: var(--in); color: var(--in); font-weight: 700; }
+.guest-row .g-del { border: none; background: none; color: var(--text2); font-size: 15px; padding: 2px 6px; }
 .inline-add { display: flex; gap: 8px; margin-top: 6px; }
 .inline-add .btn { flex-shrink: 0; }
 
@@ -185,7 +364,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .settle {
   background: var(--bg); border-radius: 12px; padding: 12px 14px; margin-top: 6px;
 }
-.settle-line { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; }
+.settle-line { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 4px 0; }
 .settle-line .n { font-variant-numeric: tabular-nums; font-weight: 600; }
 .settle-line.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; font-weight: 800; }
 .settle-line .in { color: var(--in); }
@@ -205,13 +384,23 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .btn {
   border: 1px solid var(--border); background: var(--bg); color: var(--text);
   padding: 10px 16px; border-radius: 10px; font-size: 15px; font-weight: 600;
+  min-height: 42px;
 }
 .btn.primary { background: var(--accent); color: #fff; border: none; }
 .btn.danger { background: none; color: var(--out); border: 1px solid var(--out); }
-.btn.small { padding: 7px 12px; font-size: 13px; }
+.btn.small { padding: 7px 12px; font-size: 13px; min-height: 38px; }
 .btn.block { width: 100%; margin-top: 16px; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .btn-row .btn { flex: 1; }
+
+/* 主題色選擇 */
+.swatch-row { display: flex; gap: 10px; margin-bottom: 4px; }
+.swatch {
+  width: 42px; height: 42px; border-radius: 50%; border: 2px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  color: transparent; font-size: 16px; font-weight: 700;   /* 勾勾只在選中的那顆顯示 */
+}
+.swatch.on { border-color: var(--text); color: #fff; }
 
 /* ============ 空狀態 ============ */
 .empty { text-align: center; padding: 70px 20px; color: var(--text2); line-height: 1.8; }
@@ -246,10 +435,25 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .field-row { display: flex; gap: 10px; }
 .field-row > div { flex: 1; }
 
+/* App 內的確認對話框(取代瀏覽器的 confirm) */
+.ask-backdrop {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.ask-box {
+  background: var(--card); border-radius: 18px; padding: 22px 20px 18px;
+  width: 100%; max-width: 340px; box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  animation: askIn .18s ease;
+}
+@keyframes askIn { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.ask-box .ask-msg { font-size: 15px; line-height: 1.7; white-space: pre-wrap; margin-bottom: 18px; }
+.ask-box .btn-row .btn { min-height: 44px; }
+
 /* 彈窗內的類型選擇 */
 .type-picker { display: flex; gap: 6px; }
 .type-picker button {
-  flex: 1; padding: 9px 0; border-radius: 10px; font-size: 14px;
+  flex: 1; padding: 9px 0; border-radius: 10px; font-size: 14px; min-height: 40px;
   border: 1px solid var(--border); background: var(--bg); color: var(--text2);
 }
 .type-picker button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
@@ -288,3 +492,12 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   max-width: 88vw; text-align: center;
 }
 @keyframes fadeToast { 0% {opacity:0; transform:translate(-50%,8px);} 12% {opacity:1; transform:translate(-50%,0);} 80% {opacity:1;} 100% {opacity:0;} }
+
+/* ============ 減少動態效果 ============ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

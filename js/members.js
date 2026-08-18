@@ -110,8 +110,8 @@ const Seasons = {
       toast('已儲存');
     });
     const del = document.getElementById('se-del');
-    if (del) del.addEventListener('click', () => {
-      if (!confirm(`確定刪除「${s.name}」?這一季的繳費紀錄也會一起刪除。`)) return;
+    if (del) del.addEventListener('click', async () => {
+      if (!await ask(`確定刪除「${s.name}」?\n這一季的繳費紀錄也會一起刪除。`)) return;
       this.saveList(this.list().filter(x => x.id !== s.id));
       this.savePayments(this.payments().filter(p => p.seasonId !== s.id));
       Modal.close();
@@ -125,6 +125,7 @@ const Seasons = {
 const Members = {
   TYPE: { season: '季打', guest: '臨打' },
   filter: 'season',
+  q: '',              // 人員頁搜尋框的字
 
   list() { return Store.load('members', []); },
   saveList(l) { Store.save('members', l); Sync.bg('members'); },
@@ -153,21 +154,43 @@ const Members = {
       (s.guests || []).some(g => g.mid === memberId)).length;
   },
 
+  /* 這位季打球員這一季還欠多少季費(排序和標記共用) */
+  owes(m, season) {
+    if (!season || m.type !== 'season' || m.active === false) return 0;
+    const fee = num(season.fee);
+    if (fee <= 0) return 0;
+    return Math.max(0, fee - Seasons.paidOf(season.id, m.id));
+  },
+
   /* ---------- 畫面 ---------- */
   render() {
     this.renderSeasonCard();
     const box = document.getElementById('member-list');
     const empty = document.getElementById('member-empty');
     const all = this.list();
+    const season = Seasons.current();
+    const q = this.q.trim().toLowerCase();
+
     let list = this.filter === 'all' ? all : all.filter(m => m.type === this.filter);
-    list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+    if (q) list = list.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      String(m.phone || '').toLowerCase().includes(q) ||
+      String(m.note || '').toLowerCase().includes(q));
+
+    /* 還沒繳季費的排最前面(欠越多越前面),其餘照名字排 */
+    list = [...list].sort((a, b) => {
+      const d = this.owes(b, season) - this.owes(a, season);
+      if (d) return d;
+      return a.name.localeCompare(b.name, 'zh-Hant');
+    });
 
     empty.classList.toggle('hidden', list.length > 0);
-    empty.querySelector('p').innerHTML = all.length
-      ? '這個分類還沒有球員'
-      : '還沒有球員<br>按右上角「＋」新增';
+    empty.querySelector('p').innerHTML = q
+      ? `找不到符合「${esc(this.q.trim())}」的球員`
+      : all.length
+        ? '這個分類還沒有球員'
+        : '還沒有球員<br>按右下角「＋」新增';
 
-    const season = Seasons.current();
     box.innerHTML = list.map(m => {
       const cnt = this.attendCount(m.id);
       let payChip = '';
@@ -181,6 +204,7 @@ const Members = {
             : '<span class="chip unpaid">季費未繳</span>';
       }
       return `<button class="row-card" data-id="${esc(m.id)}">
+        ${avatarHtml(m.name, m.active === false ? 'dim' : '')}
         <div class="row-main">
           <div class="row-title">${esc(m.name)}
             <span class="chip ${m.type === 'guest' ? 'guest' : ''}">${this.TYPE[m.type]}</span>
@@ -251,9 +275,9 @@ const Members = {
         const paid = Seasons.paidOf(season.id, m.id);
         const done = fee > 0 && paid >= fee;
         return `<div class="guest-row">
-          <span class="g-name">${esc(m.name)}</span>
+          <span class="g-name">${avatarHtml(m.name, 'sm')}${esc(m.name)}</span>
           <span class="hint num">${paid ? money(paid) : ''}</span>
-          <button class="g-paid ${done ? 'on' : ''}" data-id="${esc(m.id)}">${done ? '✓ 已繳' : '未繳'}</button>
+          <button class="g-paid ${done ? 'on' : ''}" type="button" data-id="${esc(m.id)}">${done ? '✓ 已繳' : '未繳'}</button>
         </div>`;
       }).join('') || '<p class="hint">還沒有季打球員</p>';
       box.querySelectorAll('.g-paid').forEach(btn =>
@@ -261,6 +285,7 @@ const Members = {
           const id = btn.dataset.id;
           if (Seasons.paidOf(season.id, id) >= fee && fee > 0) Seasons.unpay(season.id, id);
           else Seasons.pay(season.id, id, fee - Seasons.paidOf(season.id, id));
+          haptic();
           render();
           this.render();
           Finance.render();
@@ -336,9 +361,9 @@ const Members = {
     });
 
     const del = document.getElementById('mb-del');
-    if (del) del.addEventListener('click', () => {
+    if (del) del.addEventListener('click', async () => {
       const cnt = this.attendCount(m.id);
-      if (!confirm(`確定刪除「${m.name}」?${cnt ? `\n他有 ${cnt} 場出席紀錄,刪除後那些場次會顯示「已刪除」。` : ''}`)) return;
+      if (!await ask(`確定刪除「${m.name}」?${cnt ? `\n他有 ${cnt} 場出席紀錄,刪除後那些場次會顯示「已刪除」。` : ''}`)) return;
       this.saveList(this.list().filter(x => x.id !== m.id));
       Seasons.savePayments(Seasons.payments().filter(p => p.memberId !== m.id));
       Modal.close();
@@ -391,10 +416,19 @@ const Members = {
     }
 
     Modal.open(`
-      <button class="modal-close" data-close>✕</button>
-      <h2>${esc(m.name)} <span class="chip ${m.type === 'guest' ? 'guest' : ''}">${this.TYPE[m.type]}</span>
-        <span class="chip off">${GENDER[genderOf(m)]}</span></h2>
-      <div class="hint">${m.phone ? '📞 ' + esc(m.phone) + '<br>' : ''}${m.note ? esc(m.note) : ''}</div>
+      <button class="modal-close" data-close aria-label="關閉">✕</button>
+      <div style="display:flex;align-items:center;gap:14px">
+        ${avatarHtml(m.name, 'lg')}
+        <div style="min-width:0">
+          <h2 style="margin-bottom:6px">${esc(m.name)}</h2>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span class="chip ${m.type === 'guest' ? 'guest' : ''}">${this.TYPE[m.type]}</span>
+            <span class="chip off">${GENDER[genderOf(m)]}</span>
+            ${m.active === false ? '<span class="chip off">停打</span>' : ''}
+          </div>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:10px">${m.phone ? '📞 ' + esc(m.phone) + '<br>' : ''}${m.note ? esc(m.note) : ''}</div>
       <div class="stat-grid" style="margin-top:14px">
         <div class="stat"><div class="k">總出席</div><div class="v">${sessions.length}</div></div>
         <div class="stat"><div class="k">本季出席</div><div class="v">${season ? seasonSessions.length : '—'}</div></div>

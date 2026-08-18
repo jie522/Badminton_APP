@@ -8,7 +8,9 @@
 
 - **字體**:全站統一 **Noto Sans TC(思源黑體)**,透過 Google Fonts 載入,`body { font-family }` 已設好,新增元件不要另外指定字體。
 - **顏色**:只用 `css/style.css` 開頭 `:root` 定義的變數(`--accent`、`--in` 收入綠、`--out` 支出紅…),深色模式的對應值在 `@media (prefers-color-scheme: dark)` 裡,新增顏色要兩邊都補。
-- **快取破壞(cache-busting)**:`index.html` 引用 `css/style.css`、`js/*.js` 都帶 `?v=YYYYMMDD`。**每次改到 CSS 或 JS 就把 `index.html` 裡所有 `?v=` 一起換成當天日期**,不然球友手機會因為快取看不到新版。
+- **快取破壞(cache-busting)**:`index.html` 引用 `css/style.css`、`js/*.js` 都帶 `?v=YYYYMMDD`。**每次改到 CSS 或 JS 就把 `index.html` 裡所有 `?v=` 一起換成當天日期**(同一天再改就加尾碼,例如 `20260818b`),不然球友手機會因為快取看不到新版。
+  **同一次還要改 `sw.js`**:把 `CACHE` 的版本字串換成一樣的日期,並把 `ASSETS` 裡的 `?v=` 跟著換。Service Worker 是 network-first(有網路一定拿最新的),但 `CACHE` 沒換的話舊快取不會被清掉,離線時會看到舊版。
+- **共用 UI 工具在 `js/ui.js`**:主題(`Theme`)、App 內確認彈窗(`ask()`,取代 `confirm()`)、名字頭像(`avatarHtml()`)、震動回饋(`haptic()`)、進度環(`ringHtml()`)。這支要排在 `store.js` 之後、其他模組之前載入。
 - **手機優先**:所有版面以 375px 寬為基準設計,`main` 最大寬 720px 置中;可點的東西高度至少 38px。
 - **不要引入框架或 npm 套件**,保持「clone 下來用瀏覽器打開就能跑」。
 
@@ -48,7 +50,9 @@
 - 每頁右上角「＋」的行為定義在 `js/app.js` 的 `PAGES`;沒有新增動作的頁面把 `add` 設 `null`,按鈕會自動隱藏。
 - 彈窗一律用 `Modal.open(html)`,關閉鈕加 `data-close`。
 - 有需要即時反映的表單(例如場次的結算),重畫前**一定要先 `readForm()`** 把使用者打到一半的字存回 draft,不然會被洗掉。
-- 提示訊息用 `toast()`,不要用 `alert()`;破壞性操作(刪除、覆蓋)才用 `confirm()`。
+- 提示訊息用 `toast()`,不要用 `alert()`;破壞性操作(刪除、覆蓋)用 `await ask('…')`(`js/ui.js`),不要用瀏覽器的 `confirm()` —— 樣式在手機上很突兀。用了 `ask()` 的事件處理器記得加 `async`。
+- **場次表單不要整段重畫**:勾出席、加臨打、改金額都只更新有變動的那一小塊(`togglePick` / `bindGuestRow` / `renderSettle`)。整段 `innerHTML` 重寫會讓正在輸入的欄位失焦、手機鍵盤收起來。
+- 有結果的操作(勾出席、標記已收、換主題色)呼叫 `haptic()` 震一下。
 
 ## 測試
 

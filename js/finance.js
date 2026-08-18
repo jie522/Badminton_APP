@@ -57,6 +57,81 @@ const Finance = {
     return { income, expense, balance: income - expense };
   },
 
+  /* ---------- 圖表 ---------- */
+
+  /* 最近 n 個月的收入 / 支出小計(沒有帳的月份也要留位置,趨勢才看得出來) */
+  monthly(rows, n = 6) {
+    const now = new Date();
+    const months = [];
+    const map = {};
+    for (let i = n - 1; i >= 0; i--) {
+      const t = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const m = {
+        key: `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`,
+        label: (t.getMonth() + 1) + '月',
+        in: 0, out: 0,
+      };
+      months.push(m);
+      map[m.key] = m;
+    }
+    rows.forEach(r => {
+      const m = map[monthOf(r.date)];
+      if (m) m[r.kind] += r.amount;
+    });
+    return months;
+  },
+
+  chartHtml(rows) {
+    const months = this.monthly(rows);
+    const max = Math.max(1, ...months.map(m => Math.max(m.in, m.out)));
+    /* 1,200 → +1.2k,標在長條上方,寬度才夠站得下 */
+    const compact = n => {
+      const a = Math.abs(n);
+      return (n < 0 ? '−' : '+') + (a >= 1000 ? (Math.round(a / 100) / 10) + 'k' : a);
+    };
+    return `<div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">近 6 個月收支</span>
+        <span class="chart-legend"><span><i class="in"></i>收入</span><span><i class="out"></i>支出</span></span>
+      </div>
+      <div class="chart-bars">
+        ${months.map(m => {
+          const net = m.in - m.out;
+          return `<div class="cbar">
+            <span class="net ${net >= 0 ? 'in' : 'out'}">${m.in || m.out ? compact(net) : ''}</span>
+            <div class="cbar-stack">
+              <i class="in" style="height:${(m.in / max * 100).toFixed(1)}%" title="收入 ${money(m.in)}"></i>
+              <i class="out" style="height:${(m.out / max * 100).toFixed(1)}%" title="支出 ${money(m.out)}"></i>
+            </div>
+            <span class="m">${m.label}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  },
+
+  /* 這一季的季費收了幾成 */
+  seasonPayHtml() {
+    const season = Seasons.current();
+    if (!season || num(season.fee) <= 0) return '';
+    const s = Seasons.summary(season);
+    if (!s.total) return '';
+    const pct = s.expected ? s.received / s.expected * 100 : 0;
+    return `<div class="chart-card">
+      <div class="chart-head"><span class="chart-title">${esc(season.name)} 季費收繳</span></div>
+      <div class="ring-row">
+        ${ringHtml(pct, `季費已收 ${Math.round(pct)}%`)}
+        <div class="ring-info">
+          已繳 <b>${s.paidCount}/${s.total}</b> 人<br>
+          已收 <b>${money(s.received)}</b> / 應收 ${money(s.expected)}<br>
+          ${s.expected > s.received
+            ? `待收 <b>${money(s.expected - s.received)}</b>`
+            : '這一季收齊了 🎉'}
+        </div>
+      </div>
+    </div>`;
+  },
+
   /* 羽球庫存:買進的顆數 − 各場用掉的顆數 */
   shuttleStock() {
     const bought = this.txns().filter(t => t.cat === '買球').reduce((n, t) => n + num(t.qty), 0);
@@ -90,7 +165,9 @@ const Finance = {
         <div class="stat"><div class="k">${esc((Shuttles.current() || {}).name || '單顆成本')}</div>
           <div class="v" style="font-size:15px">${Shuttles.unitLabel()}<span style="font-size:12px"> /顆</span></div></div>
         <div class="stat"><div class="k">待收臨打費</div><div class="v ${this.unpaidGuest() ? 'out' : ''}" style="font-size:15px">${money(this.unpaidGuest())}</div></div>
-      </div>`;
+      </div>
+      ${this.chartHtml(rows)}
+      ${this.seasonPayHtml()}`;
 
     const box = document.getElementById('finance-list');
     const empty = document.getElementById('finance-empty');
@@ -225,8 +302,8 @@ const Finance = {
     });
 
     const del = document.getElementById('tx-del');
-    if (del) del.addEventListener('click', () => {
-      if (!confirm('確定刪除這筆帳目?')) return;
+    if (del) del.addEventListener('click', async () => {
+      if (!await ask('確定刪除這筆帳目?')) return;
       this.saveTxns(this.txns().filter(x => x.id !== t.id));
       Modal.close();
       this.render();

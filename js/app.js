@@ -21,31 +21,37 @@ document.getElementById('modal-backdrop').addEventListener('click', e => {
 
 /* ---------- 頁籤 ---------- */
 const PAGES = {
-  sessions: { title: '打球場次', add: () => Sessions.openAdd() },
-  members: { title: '球員名單', add: () => Members.openAdd() },
-  finance: { title: '公款收支', add: () => Finance.openAdd() },
-  photos: { title: '球隊相簿', add: () => Photos.openAdd() },
+  sessions: { title: '打球場次', add: () => Sessions.openAdd(), addLabel: '記一場球' },
+  members: { title: '球員名單', add: () => Members.openAdd(), addLabel: '新增球員' },
+  finance: { title: '公款收支', add: () => Finance.openAdd(), addLabel: '記一筆收支' },
+  photos: { title: '球隊相簿', add: () => Photos.openAdd(), addLabel: '上傳照片' },
   settings: { title: '設定', add: null },
 };
 let currentPage = 'sessions';
 
+const fab = document.getElementById('fab-add');
+
 function switchPage(page) {
   currentPage = page;
-  document.querySelectorAll('.tab').forEach(t =>
-    t.classList.toggle('active', t.dataset.page === page));
+  document.querySelectorAll('.tab').forEach(t => {
+    const on = t.dataset.page === page;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-current', on ? 'page' : 'false');
+  });
   document.querySelectorAll('.page').forEach(p =>
     p.classList.toggle('active', p.id === 'page-' + page));
   document.getElementById('header-title').textContent = PAGES[page].title;
-  document.getElementById('header-action').classList.toggle('hidden', !PAGES[page].add);
+  fab.classList.toggle('hidden', !PAGES[page].add);
+  if (PAGES[page].add) fab.setAttribute('aria-label', PAGES[page].addLabel);
   window.scrollTo(0, 0);
 }
 
 document.querySelectorAll('.tab').forEach(tab =>
   tab.addEventListener('click', () => switchPage(tab.dataset.page)));
 
-document.getElementById('header-action').addEventListener('click', () => {
+fab.addEventListener('click', () => {
   const fn = PAGES[currentPage].add;
-  if (fn) fn();
+  if (fn) { haptic(); fn(); }
 });
 
 /* ---------- 分段篩選 ---------- */
@@ -77,6 +83,43 @@ document.querySelectorAll('#finance-filter button').forEach(btn =>
     Finance.render();
   }));
 
+/* ---------- 人員頁搜尋 ---------- */
+const memberSearch = document.getElementById('member-search');
+const memberSearchClear = document.getElementById('member-search-clear');
+
+memberSearch.addEventListener('input', () => {
+  Members.q = memberSearch.value;
+  memberSearchClear.classList.toggle('hidden', !Members.q);
+  Members.render();
+});
+memberSearchClear.addEventListener('click', () => {
+  memberSearch.value = '';
+  Members.q = '';
+  memberSearchClear.classList.add('hidden');
+  Members.render();
+  memberSearch.focus();
+});
+
+/* ---------- 設定:外觀 ---------- */
+function loadThemeForm() {
+  document.querySelectorAll('#theme-mode button').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === Theme.mode()));
+  document.querySelectorAll('#theme-accent .swatch').forEach(b =>
+    b.classList.toggle('on', b.dataset.accent === Theme.accent()));
+}
+
+document.querySelectorAll('#theme-mode button').forEach(btn =>
+  btn.addEventListener('click', () => {
+    Theme.set({ theme: btn.dataset.mode });
+    loadThemeForm();
+  }));
+document.querySelectorAll('#theme-accent .swatch').forEach(btn =>
+  btn.addEventListener('click', () => {
+    Theme.set({ accent: btn.dataset.accent });
+    loadThemeForm();
+    haptic();
+  }));
+
 /* ---------- 設定:收費 ---------- */
 const SET_FIELDS = ['guestFeeM', 'guestFeeF', 'courtFee', 'venue', 'time'];
 
@@ -102,9 +145,16 @@ document.getElementById('save-settings').addEventListener('click', () => {
 /* ---------- 設定:羽球品項 ---------- */
 document.getElementById('shuttle-add').addEventListener('click', () => Shuttles.openAdd());
 
-/* ---------- 設定:Google Sheet 同步 ---------- */
+/* ---------- Google Sheet 同步 ---------- */
 const scriptInput = document.getElementById('script-url');
 const syncStatus = document.getElementById('sync-status');
+const syncBtn = document.getElementById('sync-indicator');
+
+/* 頁首右上角那顆:一眼看出資料到底有沒有存到雲端 */
+function setSyncUI(state, label) {
+  syncBtn.className = 'sync-btn ' + state;
+  syncBtn.querySelector('.s-label').textContent = label;
+}
 
 function refreshSyncStatus() {
   const s = Store.load('settings', {});
@@ -112,10 +162,23 @@ function refreshSyncStatus() {
     scriptInput.value = Sync.url();
     const t = s.lastSync ? new Date(s.lastSync).toLocaleString('zh-TW') : '尚未同步';
     syncStatus.textContent = `✅ 同步已啟用,上次讀取:${t}`;
+    setSyncUI('on', '已同步');
   } else {
     syncStatus.textContent = '尚未啟用,目前資料只存在這支手機';
+    setSyncUI('', '未同步');
   }
 }
+
+syncBtn.addEventListener('click', async () => {
+  if (!Sync.enabled()) {
+    switchPage('settings');
+    scriptInput.focus();
+    toast('貼上 Apps Script 網址就能開始同步');
+    return;
+  }
+  setSyncUI('busy', '同步中');
+  if (await pullAndRender()) toast('已同步最新資料');
+});
 
 function renderAll() {
   Sessions.render();
@@ -126,12 +189,14 @@ function renderAll() {
 }
 
 async function pullAndRender() {
+  setSyncUI('busy', '同步中');
   try {
     await Sync.pull();
     renderAll();
     refreshSyncStatus();
     return true;
   } catch {
+    setSyncUI('err', '同步失敗');
     toast('⚠️ 讀取 Google Sheet 失敗,顯示手機上的資料');
     return false;
   }
@@ -153,13 +218,17 @@ document.getElementById('save-script').addEventListener('click', async () => {
   }
   setCfg({ scriptUrl: url });
   syncStatus.textContent = '測試連線中…';
+  setSyncUI('busy', '連線中');
   const ok = await Sync.push('ping', {});
   if (!ok) {
     syncStatus.textContent = '❌ 連不上 Apps Script,請確認部署時「誰可以存取」選了「所有人」';
+    setSyncUI('err', '連不上');
     return;
   }
   const counts = Store.TABLES.map(t => Store.load(t, []).length).reduce((a, b) => a + b, 0);
-  if (counts && confirm(`連線成功!要把這支手機現有的資料(共 ${counts} 筆)上傳到 Google Sheet 嗎?\n(球友的手機第一次啟用時選「取消」就好)`)) {
+  if (counts && await ask(
+      `連線成功!\n要把這支手機現有的資料(共 ${counts} 筆)上傳到 Google Sheet 嗎?\n\n(球友的手機第一次啟用時選「先不要」就好)`,
+      { ok: '上傳', cancel: '先不要', danger: false })) {
     syncStatus.textContent = '上傳中…';
     const up = await Sync.pushAll();
     toast(up ? '已上傳到 Google Sheet' : '⚠️ 上傳失敗,請再試一次');
@@ -179,13 +248,15 @@ document.getElementById('sync-now').addEventListener('click', async () => {
 document.getElementById('export-data').addEventListener('click', () => Store.exportAll());
 document.getElementById('import-data').addEventListener('click', () =>
   document.getElementById('import-file').click());
-document.getElementById('import-file').addEventListener('change', e => {
+document.getElementById('import-file').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  if (!confirm('匯入會覆蓋這支手機目前的資料,確定嗎?')) { e.target.value = ''; return; }
+  if (!await ask('匯入會覆蓋這支手機目前的資料,確定嗎?')) { e.target.value = ''; return; }
   Store.importAll(file, ok => {
     if (ok) {
       loadSettingsForm();
+      loadThemeForm();
+      Theme.apply();
       renderAll();
       toast('匯入成功!');
     } else {
@@ -195,8 +266,18 @@ document.getElementById('import-file').addEventListener('change', e => {
   });
 });
 
+/* ---------- 加到主畫面(PWA) ---------- */
+/* 註冊 Service Worker 之後,球友可以把 App 加到手機主畫面,全螢幕開、沒網路也打得開 */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* 沒註冊成功就當一般網頁用 */ });
+  });
+}
+
 /* ---------- 啟動 ---------- */
 migrate();                            // 舊資料補上新欄位(性別、男女兩價)
+Theme.apply();                        // 深淺色和主題色
+loadThemeForm();
 loadSettingsForm();
 refreshSyncStatus();
 syncFilterUI();

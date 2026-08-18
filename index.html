@@ -11,20 +11,39 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=20260818">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🏸</text></svg>">
+<link rel="stylesheet" href="css/style.css?v=20260818b">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BADMAP">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<script>
+/* 主題要在畫面畫出來之前套用,不然深色模式的人會先閃一下白底 */
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem('bad.settings') || '{}');
+    if (s.theme === 'dark' || s.theme === 'light') document.documentElement.setAttribute('data-theme', s.theme);
+    document.documentElement.setAttribute('data-accent', s.accent || 'green');
+  } catch (e) { /* 讀不到就用預設 */ }
+})();
+</script>
 </head>
 <body>
 
 <header class="app-header">
   <h1 id="header-title">打球場次</h1>
-  <button id="header-action" class="icon-btn" title="新增">＋</button>
+  <button id="sync-indicator" class="sync-btn" title="同步狀態">
+    <span class="dot"></span><span class="s-label">未同步</span>
+  </button>
 </header>
 
 <main id="main">
 
   <!-- ============ 場次 ============ -->
   <section id="page-sessions" class="page active">
+    <button id="unpaid-bar" class="alert-bar hidden" type="button"></button>
+    <div id="unpaid-list" class="alert-list hidden"></div>
     <div id="session-stats" class="stat-grid"></div>
     <div class="segmented" id="session-filter">
       <button data-range="season" class="active">本季</button>
@@ -34,13 +53,18 @@
     <div id="session-list" class="card-list"></div>
     <div id="session-empty" class="empty hidden">
       <div class="empty-icon">🏸</div>
-      <p>還沒有打球紀錄<br>按右上角「＋」記第一場</p>
+      <p>還沒有打球紀錄<br>按右下角「＋」記第一場</p>
     </div>
   </section>
 
   <!-- ============ 人員 ============ -->
   <section id="page-members" class="page">
     <div id="season-card" class="card season-card"></div>
+    <div class="search-box">
+      <span class="s-icon">🔍</span>
+      <input type="search" id="member-search" placeholder="搜尋名字、電話、備註" autocomplete="off">
+      <button id="member-search-clear" class="s-clear hidden" type="button" aria-label="清除搜尋">✕</button>
+    </div>
     <div class="segmented" id="member-filter">
       <button data-type="season" class="active">季打</button>
       <button data-type="guest">臨打</button>
@@ -49,7 +73,7 @@
     <div id="member-list" class="card-list"></div>
     <div id="member-empty" class="empty hidden">
       <div class="empty-icon">👥</div>
-      <p>還沒有球員<br>按右上角「＋」新增</p>
+      <p>還沒有球員<br>按右下角「＋」新增</p>
     </div>
   </section>
 
@@ -74,24 +98,41 @@
     <div id="photo-groups"></div>
     <div id="photo-empty" class="empty hidden">
       <div class="empty-icon">📷</div>
-      <p>還沒有照片<br>按右上角「＋」上傳這週的照片</p>
+      <p>還沒有照片<br>按右下角「＋」上傳這週的照片</p>
     </div>
   </section>
 
   <!-- ============ 設定 ============ -->
   <section id="page-settings" class="page">
     <div class="card">
+      <h2>外觀</h2>
+      <p class="hint">深淺色和主題色只影響這支手機,不會同步給其他球友。</p>
+      <label>深淺色</label>
+      <div class="type-picker" id="theme-mode">
+        <button data-mode="auto">跟隨系統</button>
+        <button data-mode="light">淺色</button>
+        <button data-mode="dark">深色</button>
+      </div>
+      <label>主題色</label>
+      <div class="swatch-row" id="theme-accent">
+        <button class="swatch" data-accent="green" style="background:#12967c" aria-label="綠">✓</button>
+        <button class="swatch" data-accent="blue" style="background:#1668c9" aria-label="藍">✓</button>
+        <button class="swatch" data-accent="orange" style="background:#d9622b" aria-label="橘">✓</button>
+        <button class="swatch" data-accent="purple" style="background:#7a4bd0" aria-label="紫">✓</button>
+      </div>
+    </div>
+    <div class="card">
       <h2>收費設定</h2>
       <p class="hint">季打球員的場地費已含在季費裡,每場不再收錢;臨打球友每場收一次固定費用,金額依性別自動帶入,現場也可以個別調整。</p>
       <div class="field-row">
-        <div><label>臨打單場費 · 男生</label><input type="number" id="set-guestFeeM" inputmode="numeric" placeholder="180"></div>
-        <div><label>臨打單場費 · 女生</label><input type="number" id="set-guestFeeF" inputmode="numeric" placeholder="160"></div>
+        <div><label for="set-guestFeeM">臨打單場費 · 男生</label><input type="number" id="set-guestFeeM" inputmode="numeric" placeholder="180"></div>
+        <div><label for="set-guestFeeF">臨打單場費 · 女生</label><input type="number" id="set-guestFeeF" inputmode="numeric" placeholder="160"></div>
       </div>
-      <label>預設場地費(元 / 場)</label>
+      <label for="set-courtFee">預設場地費(元 / 場)</label>
       <input type="number" id="set-courtFee" inputmode="numeric" placeholder="800">
-      <label>預設場地名稱</label>
+      <label for="set-venue">預設場地名稱</label>
       <input type="text" id="set-venue" placeholder="例如:大同國小活動中心">
-      <label>預設打球時間</label>
+      <label for="set-time">預設打球時間</label>
       <input type="text" id="set-time" placeholder="例如:19:00-22:00">
       <button id="save-settings" class="btn primary">儲存設定</button>
     </div>
@@ -125,19 +166,23 @@
     </div>
     <div class="card">
       <h2>關於</h2>
-      <p class="hint">BADMAP 羽球管理 v1.0<br>
-      季打固定季費、臨打單場收費、每場自動結算、公款收支與羽球庫存管理、每週照片上傳。</p>
+      <p class="hint">BADMAP 羽球管理 v1.1<br>
+      季打固定季費、臨打單場收費、每場自動結算、公款收支與羽球庫存管理、每週照片上傳。<br>
+      用手機瀏覽器開啟後,選「加到主畫面」就能像 App 一樣全螢幕使用,沒網路也打得開。</p>
     </div>
   </section>
 
 </main>
 
+<!-- 右下角新增鈕:單手好按 -->
+<button id="fab-add" class="fab" aria-label="新增">＋</button>
+
 <nav class="tab-bar">
-  <button class="tab active" data-page="sessions"><span class="tab-icon">🏸</span>場次</button>
-  <button class="tab" data-page="members"><span class="tab-icon">👥</span>人員</button>
-  <button class="tab" data-page="finance"><span class="tab-icon">💰</span>收支</button>
-  <button class="tab" data-page="photos"><span class="tab-icon">📷</span>相簿</button>
-  <button class="tab" data-page="settings"><span class="tab-icon">⚙️</span>設定</button>
+  <button class="tab active" data-page="sessions"><span class="tab-icon" aria-hidden="true">🏸</span>場次</button>
+  <button class="tab" data-page="members"><span class="tab-icon" aria-hidden="true">👥</span>人員</button>
+  <button class="tab" data-page="finance"><span class="tab-icon" aria-hidden="true">💰</span>收支</button>
+  <button class="tab" data-page="photos"><span class="tab-icon" aria-hidden="true">📷</span>相簿</button>
+  <button class="tab" data-page="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
 </nav>
 
 <!-- 通用彈窗 -->
@@ -148,13 +193,14 @@
 <!-- 照片放大 -->
 <div id="lightbox" class="lightbox hidden"></div>
 
-<script src="js/store.js?v=20260818"></script>
-<script src="js/sync.js?v=20260818"></script>
-<script src="js/shuttles.js?v=20260818"></script>
-<script src="js/members.js?v=20260818"></script>
-<script src="js/sessions.js?v=20260818"></script>
-<script src="js/finance.js?v=20260818"></script>
-<script src="js/photos.js?v=20260818"></script>
-<script src="js/app.js?v=20260818"></script>
+<script src="js/store.js?v=20260818b"></script>
+<script src="js/ui.js?v=20260818b"></script>
+<script src="js/sync.js?v=20260818b"></script>
+<script src="js/shuttles.js?v=20260818b"></script>
+<script src="js/members.js?v=20260818b"></script>
+<script src="js/sessions.js?v=20260818b"></script>
+<script src="js/finance.js?v=20260818b"></script>
+<script src="js/photos.js?v=20260818b"></script>
+<script src="js/app.js?v=20260818b"></script>
 </body>
 </html>

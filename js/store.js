@@ -75,6 +75,8 @@ const DEFAULTS = {
   courtFee: 800,      // 預設場地費
   venue: '佳青羽球館',
   time: '19:00-22:00',
+  theme: 'auto',      // 深色 / 淺色 / 跟隨系統(見 js/ui.js 的 Theme)
+  accent: 'green',    // 主題色:green / blue / orange / purple
 };
 
 function cfg() { return { ...DEFAULTS, ...Store.load('settings', {}) }; }

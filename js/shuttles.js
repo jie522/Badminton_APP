@@ -128,8 +128,8 @@ const Shuttles = {
     });
 
     const del = document.getElementById('sh-del');
-    if (del) del.addEventListener('click', () => {
-      if (!confirm(`確定刪除球種「${s.name}」?已經記過的買球帳目不受影響。`)) return;
+    if (del) del.addEventListener('click', async () => {
+      if (!await ask(`確定刪除球種「${s.name}」?已經記過的買球帳目不受影響。`)) return;
       this.saveList(this.list().filter(x => x.id !== s.id));
       Modal.close();
       this.render();
