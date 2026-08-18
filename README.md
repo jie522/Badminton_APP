@@ -31,18 +31,20 @@ npx -y http-server -p 8091 -c-1 .
 
 然後開 http://localhost:8091
 
-## 部署到 GitHub Pages(一次性設定)
+## 部署到 GitHub Pages
 
-1. 到 [github.com](https://github.com) 建立新 repository(例如叫 `badminton-app`)
-2. 把這個資料夾的所有檔案推上去:
-   ```bash
-   git init && git add . && git commit -m "BADMAP v1" && git branch -M main
-   ```
-   ```bash
-   git remote add origin https://github.com/<你的帳號>/badminton-app.git && git push -u origin main
-   ```
-3. 到 repo 的 **Settings → Pages**,Source 選 **Deploy from a branch**,Branch 選 `main` / `(root)`,存檔
-4. 幾分鐘後網址生效:`https://<你的帳號>.github.io/badminton-app/`,把網址傳給球友,手機加到主畫面就像 App
+程式碼已經在 <https://github.com/jie522/Badminton_APP>。剩下**開啟 Pages 這一步要自己在網頁上點**(只做一次):
+
+1. 打開 <https://github.com/jie522/Badminton_APP/settings/pages>
+2. Source 選 **Deploy from a branch**,Branch 選 `main` / `(root)`,按 **Save**
+3. 等一兩分鐘,網址生效:**<https://jie522.github.io/Badminton_APP/>**
+4. 手機打開網址 →「加入主畫面」,用起來就跟 App 一樣。把網址傳給球友就能共用
+
+之後有改動:
+
+```bash
+git add -A && git commit -m "說明" && git push
+```
 
 > repo 是公開的,但**球員名單、收支、照片都不在 repo 裡**(存在你自己的 Google Sheet / Drive 和各自的手機),推上去的只有程式碼。
 
