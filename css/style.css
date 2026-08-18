@@ -1,0 +1,290 @@
+/* ============ 基礎 ============ */
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1a1d29;
+  --text2: #6b7280;
+  --border: #e5e7eb;
+  --accent: #12967c;        /* 羽球場地綠 */
+  --accent-soft: #e4f5f0;
+  --in: #0f9d58;            /* 收入 */
+  --out: #e0342f;           /* 支出 */
+  --warn: #d97706;
+  --shadow: 0 1px 4px rgba(0,0,0,.08);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12141c;
+    --card: #1e2130;
+    --text: #eceef4;
+    --text2: #9aa0b0;
+    --border: #2c3042;
+    --accent: #2fd0a8;
+    --accent-soft: #17342e;
+    --in: #2ecc80;
+    --out: #ff5f57;
+    --warn: #f0b429;
+    --shadow: 0 1px 4px rgba(0,0,0,.35);
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: "Noto Sans TC", -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  min-height: 100vh;
+}
+a { color: var(--accent); }
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select {
+  font-family: inherit; font-size: 16px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; width: 100%;
+}
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.hidden { display: none !important; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ============ 頁首 / 頁籤 ============ */
+.app-header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+  background: var(--bg);
+}
+.app-header h1 { font-size: 22px; }
+.icon-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: none; background: var(--accent); color: #fff;
+  font-size: 22px; line-height: 1; box-shadow: var(--shadow);
+}
+.tab-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+  display: flex;
+  background: var(--card); border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tab {
+  flex: 1; padding: 8px 0 6px; border: none; background: none;
+  color: var(--text2); font-size: 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.tab.active { color: var(--accent); font-weight: 700; }
+.tab-icon { font-size: 21px; }
+
+main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
+.page { display: none; }
+.page.active { display: block; }
+.page-hint { margin: 0 2px 12px; }
+
+/* ============ 分段選單 ============ */
+.segmented {
+  display: flex; gap: 6px; margin: 4px 0 14px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.segmented::-webkit-scrollbar { display: none; }
+.segmented button {
+  border: none; background: var(--card); color: var(--text2);
+  padding: 8px 16px; border-radius: 999px; font-size: 14px;
+  white-space: nowrap; box-shadow: var(--shadow);
+}
+.segmented button.active { background: var(--accent); color: #fff; font-weight: 700; }
+
+/* ============ 卡片清單 ============ */
+.card-list { display: flex; flex-direction: column; gap: 10px; }
+.row-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--card); border-radius: var(--radius);
+  padding: 13px 15px; box-shadow: var(--shadow);
+  border: none; border-left: 3px solid transparent; width: 100%;
+  color: var(--text); text-align: left;
+}
+.row-card.in-left { border-left-color: var(--in); }
+.row-card.out-left { border-left-color: var(--out); }
+.row-main { min-width: 0; flex: 1; }
+.row-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.row-sub { font-size: 12px; color: var(--text2); margin-top: 4px; line-height: 1.6; }
+.row-right { text-align: right; flex-shrink: 0; }
+.row-amount { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.row-amount.in { color: var(--in); }
+.row-amount.out { color: var(--out); }
+.row-note { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+.chip {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-weight: 700;
+}
+.chip.guest { background: rgba(217,119,6,.14); color: var(--warn); }
+.chip.unpaid { background: rgba(224,52,47,.12); color: var(--out); }
+.chip.paid { background: rgba(15,157,88,.12); color: var(--in); }
+.chip.off { background: var(--bg); color: var(--text2); }
+
+/* ============ 統計格 ============ */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 2px 0 14px; }
+.stat {
+  background: var(--card); border-radius: 12px; padding: 11px 8px; text-align: center;
+  box-shadow: var(--shadow);
+}
+.stat .k { font-size: 11px; color: var(--text2); }
+.stat .v { font-size: 17px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.stat .v.in { color: var(--in); }
+.stat .v.out { color: var(--out); }
+
+/* ============ 餘額卡 ============ */
+.balance-card {
+  background: linear-gradient(135deg, var(--accent), #0b6f5c);
+  color: #fff; border-radius: 18px; padding: 18px 18px 16px;
+  margin: 2px 0 14px; box-shadow: var(--shadow);
+}
+.balance-card .k { font-size: 13px; opacity: .85; }
+.balance-card .v { font-size: 34px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.balance-sub { display: flex; gap: 18px; margin-top: 12px; font-size: 13px; }
+.balance-sub b { display: block; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.balance-sub span { opacity: .85; }
+
+/* ============ 季別卡 ============ */
+.season-card { padding: 14px 16px; }
+.season-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.season-name { font-size: 16px; font-weight: 800; }
+.season-range { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.season-bar { height: 8px; border-radius: 999px; background: var(--bg); margin: 12px 0 6px; overflow: hidden; }
+.season-bar > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.season-pay { font-size: 13px; color: var(--text2); }
+.season-pay b { color: var(--text); }
+.link-btn { border: none; background: none; color: var(--accent); font-size: 13px; font-weight: 700; padding: 4px 0; }
+
+/* ============ 出席勾選 ============ */
+.pick-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick {
+  border: 1px solid var(--border); background: var(--bg); color: var(--text2);
+  border-radius: 999px; padding: 8px 14px; font-size: 14px;
+}
+.pick.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+
+/* 臨打列 */
+.guest-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px;
+}
+.guest-row .g-name { flex: 1; font-size: 14px; font-weight: 600; min-width: 0; }
+.guest-row input[type="number"] { width: 82px; padding: 6px 8px; font-size: 14px; text-align: right; }
+.guest-row .g-paid { border: 1px solid var(--border); background: var(--card); color: var(--text2);
+  border-radius: 8px; font-size: 12px; padding: 6px 9px; white-space: nowrap; }
+.guest-row .g-paid.on { background: rgba(15,157,88,.14); border-color: var(--in); color: var(--in); font-weight: 700; }
+.guest-row .g-del { border: none; background: none; color: var(--text2); font-size: 15px; padding: 2px 4px; }
+.inline-add { display: flex; gap: 8px; margin-top: 6px; }
+.inline-add .btn { flex-shrink: 0; }
+
+/* ============ 結算 ============ */
+.settle {
+  background: var(--bg); border-radius: 12px; padding: 12px 14px; margin-top: 6px;
+}
+.settle-line { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; }
+.settle-line .n { font-variant-numeric: tabular-nums; font-weight: 600; }
+.settle-line.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; font-weight: 800; }
+.settle-line .in { color: var(--in); }
+.settle-line .out { color: var(--out); }
+.settle-note { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.6; }
+
+/* ============ 卡片(設定頁) ============ */
+.card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 18px 16px; margin-bottom: 14px; box-shadow: var(--shadow);
+}
+.card h2 { font-size: 17px; margin-bottom: 8px; }
+.card .hint { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 10px; }
+.hint { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.card input { margin-bottom: 10px; }
+.card label { display: block; font-size: 13px; font-weight: 700; color: var(--text2); margin: 12px 0 6px; }
+.btn {
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  padding: 10px 16px; border-radius: 10px; font-size: 15px; font-weight: 600;
+}
+.btn.primary { background: var(--accent); color: #fff; border: none; }
+.btn.danger { background: none; color: var(--out); border: 1px solid var(--out); }
+.btn.small { padding: 7px 12px; font-size: 13px; }
+.btn.block { width: 100%; margin-top: 16px; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-row .btn { flex: 1; }
+
+/* ============ 空狀態 ============ */
+.empty { text-align: center; padding: 70px 20px; color: var(--text2); line-height: 1.8; }
+.empty-icon { font-size: 52px; margin-bottom: 10px; }
+
+/* ============ 彈窗 ============ */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,.5);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal {
+  background: var(--card); width: 100%; max-width: 560px;
+  border-radius: 20px 20px 0 0;
+  max-height: 88vh; overflow-y: auto;
+  padding: 20px 18px calc(24px + env(safe-area-inset-bottom));
+  animation: slideUp .22s ease;
+}
+@keyframes slideUp { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (min-width: 600px) {
+  .modal-backdrop { align-items: center; }
+  .modal { border-radius: 20px; }
+}
+.modal h2 { font-size: 19px; margin-bottom: 14px; }
+.modal h3 { font-size: 15px; margin: 18px 0 8px; }
+.modal-close {
+  float: right; border: none; background: var(--bg); color: var(--text2);
+  width: 32px; height: 32px; border-radius: 50%; font-size: 16px;
+}
+.modal label { display: block; font-size: 13px; font-weight: 700; color: var(--text2); margin: 14px 0 6px; }
+.modal textarea { min-height: 70px; resize: vertical; }
+.field-row { display: flex; gap: 10px; }
+.field-row > div { flex: 1; }
+
+/* 彈窗內的類型選擇 */
+.type-picker { display: flex; gap: 6px; }
+.type-picker button {
+  flex: 1; padding: 9px 0; border-radius: 10px; font-size: 14px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text2);
+}
+.type-picker button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+
+/* ============ 相簿 ============ */
+.photo-group { margin-bottom: 18px; }
+.photo-group-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin: 0 2px 8px; font-size: 14px; font-weight: 700;
+}
+.photo-group-head span { font-size: 12px; color: var(--text2); font-weight: 400; }
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.photo-grid img, .photo-grid .ph {
+  width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px;
+  background: var(--accent-soft); display: block; border: none; padding: 0;
+}
+.photo-grid .ph { display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--text2); }
+.lightbox {
+  position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.92);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 20px;
+}
+.lightbox img { max-width: 100%; max-height: 76vh; border-radius: 10px; }
+.lightbox .lb-cap { color: #fff; font-size: 14px; text-align: center; }
+.lightbox .lb-bar { display: flex; gap: 10px; }
+.upload-preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.upload-preview img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.progress { font-size: 13px; color: var(--text2); margin-top: 10px; }
+
+/* ============ Toast ============ */
+.toast {
+  position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 10px 20px;
+  border-radius: 999px; font-size: 14px; z-index: 99;
+  animation: fadeToast 2.4s ease forwards; pointer-events: none;
+  max-width: 88vw; text-align: center;
+}
+@keyframes fadeToast { 0% {opacity:0; transform:translate(-50%,8px);} 12% {opacity:1; transform:translate(-50%,0);} 80% {opacity:1;} 100% {opacity:0;} }

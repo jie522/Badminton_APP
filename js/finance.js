@@ -1,0 +1,236 @@
+/* 公款收支:季費、臨打費、場地費、買球與其他雜支
+ *
+ * 帳目分兩種來源:
+ *   自動帳 — 從場次(場地費、臨打收入)和季費繳納紀錄算出來,改場次就會跟著變,不能直接編輯
+ *   手動帳 — 買球、贊助、聚餐這類自己輸入的收支,存在 txns
+ * 兩者合起來就是公款的完整流水帳。
+ */
+const Finance = {
+  filter: 'all',
+  OUT_CATS: ['買球', '包場 / 押金', '團服 / 器材', '聚餐', '其他支出'],
+  IN_CATS: ['贊助 / 補助', '其他收入'],
+
+  txns() { return Store.load('txns', []); },
+  saveTxns(l) { Store.save('txns', l); Sync.bg('txns'); },
+
+  /* ---------- 完整流水帳 ---------- */
+  ledger() {
+    const rows = [];
+
+    Sessions.list().forEach(s => {
+      const c = Sessions.calc(s);
+      if (c.courtFee) rows.push({
+        date: s.date, kind: 'out', cat: '場地費', amount: c.courtFee,
+        note: `${s.venue || '打球'} · ${c.head} 人`, src: 'session', srcId: s.id,
+      });
+      if (c.guestIncome) rows.push({
+        date: s.date, kind: 'in', cat: '臨打費', amount: c.guestIncome,
+        note: `${s.guests.filter(g => g.paid).length} 位臨打`, src: 'session', srcId: s.id,
+      });
+    });
+
+    Seasons.payments().forEach(p => {
+      const season = Seasons.byId(p.seasonId);
+      rows.push({
+        date: p.date, kind: 'in', cat: '季費', amount: num(p.amount),
+        note: `${Members.name(p.memberId)}${season ? ' · ' + season.name : ''}`,
+        src: 'payment', srcId: p.memberId,
+      });
+    });
+
+    this.txns().forEach(t => {
+      const sh = t.shuttleId ? Shuttles.byId(t.shuttleId) : null;
+      const label = [sh ? sh.name : '', num(t.tubes) ? num(t.tubes) + ' 筒' : '', t.note || '']
+        .filter(Boolean).join(' · ');
+      rows.push({
+        date: t.date, kind: t.kind, cat: t.cat, amount: num(t.amount),
+        note: label, qty: num(t.qty), src: 'txn', srcId: t.id,
+      });
+    });
+
+    return rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  },
+
+  totals(rows) {
+    const income = rows.filter(r => r.kind === 'in').reduce((n, r) => n + r.amount, 0);
+    const expense = rows.filter(r => r.kind === 'out').reduce((n, r) => n + r.amount, 0);
+    return { income, expense, balance: income - expense };
+  },
+
+  /* 羽球庫存:買進的顆數 − 各場用掉的顆數 */
+  shuttleStock() {
+    const bought = this.txns().filter(t => t.cat === '買球').reduce((n, t) => n + num(t.qty), 0);
+    const used = Sessions.list().reduce((n, s) => n + num(s.shuttles), 0);
+    return { bought, used, left: bought - used };
+  },
+
+  /* ---------- 畫面 ---------- */
+  render() {
+    const rows = this.ledger();
+    const all = this.totals(rows);
+    const season = Seasons.current();
+    const seasonRows = season
+      ? rows.filter(r => r.date >= (season.start || '') && r.date <= (season.end || '9999'))
+      : rows;
+    const st = this.totals(seasonRows);
+    const stock = this.shuttleStock();
+
+    document.getElementById('finance-balance').innerHTML = `
+      <div class="balance-card">
+        <div class="k">公款餘額</div>
+        <div class="v">${money(all.balance)}</div>
+        <div class="balance-sub">
+          <div><span>${season ? season.name + ' 收入' : '總收入'}</span><b>${money(st.income)}</b></div>
+          <div><span>${season ? season.name + ' 支出' : '總支出'}</span><b>${money(st.expense)}</b></div>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="k">羽球庫存(買 ${stock.bought} / 用 ${stock.used})</div>
+          <div class="v ${stock.left < 6 ? 'out' : ''}">${stock.left}<span style="font-size:12px"> 顆</span></div></div>
+        <div class="stat"><div class="k">${esc((Shuttles.current() || {}).name || '單顆成本')}</div>
+          <div class="v" style="font-size:15px">${Shuttles.unitLabel()}<span style="font-size:12px"> /顆</span></div></div>
+        <div class="stat"><div class="k">待收臨打費</div><div class="v ${this.unpaidGuest() ? 'out' : ''}" style="font-size:15px">${money(this.unpaidGuest())}</div></div>
+      </div>`;
+
+    const box = document.getElementById('finance-list');
+    const empty = document.getElementById('finance-empty');
+    const list = this.filter === 'all' ? rows : rows.filter(r => r.kind === this.filter);
+    empty.classList.toggle('hidden', list.length > 0);
+
+    box.innerHTML = list.map((r, i) => `
+      <button class="row-card ${r.kind === 'in' ? 'in-left' : 'out-left'}" data-i="${i}">
+        <div class="row-main">
+          <div class="row-title" style="font-size:15px">${esc(r.cat)}
+            ${r.src === 'txn' ? '' : '<span class="chip off">自動</span>'}</div>
+          <div class="row-sub">${esc(shortDate(r.date))}${r.note ? ' · ' + esc(r.note) : ''}${r.qty ? ` · ${r.qty} 顆` : ''}</div>
+        </div>
+        <div class="row-right">
+          <div class="row-amount ${r.kind}">${r.kind === 'in' ? '+' : '−'}${money(r.amount)}</div>
+        </div>
+      </button>`).join('');
+
+    box.querySelectorAll('.row-card').forEach(el =>
+      el.addEventListener('click', () => {
+        const r = list[+el.dataset.i];
+        if (r.src === 'txn') this.openEdit(r.srcId);
+        else if (r.src === 'session') Sessions.openEdit(r.srcId);
+        else if (r.src === 'payment') Members.openDetail(r.srcId);
+      }));
+  },
+
+  /* 所有場次裡還沒跟臨打球友收到的錢 */
+  unpaidGuest() {
+    return Sessions.list().reduce((n, s) => n + Sessions.calc(s).guestUnpaid, 0);
+  },
+
+  /* ---------- 新增 / 編輯手動帳目 ---------- */
+  openAdd() { this.openEdit(null); },
+
+  openEdit(id) {
+    const t = id ? this.txns().find(x => x.id === id) : null;
+    const kind = t ? t.kind : 'out';
+    const cat = t ? t.cat : '買球';
+    const cats = kind === 'in' ? this.IN_CATS : this.OUT_CATS;
+    Modal.open(`
+      <button class="modal-close" data-close>✕</button>
+      <h2>${t ? '編輯帳目' : '記一筆收支'}</h2>
+      <p class="hint">場地費、臨打收入、季費都會自動記帳,不用在這裡重複輸入。這裡記的是買球、贊助、聚餐這類。</p>
+      <label>收 / 支</label>
+      <div class="type-picker" id="tx-kind">
+        <button data-kind="out" class="${kind === 'out' ? 'active' : ''}">支出</button>
+        <button data-kind="in" class="${kind === 'in' ? 'active' : ''}">收入</button>
+      </div>
+      <label>分類</label>
+      <select id="tx-cat">${cats.map(c => `<option ${c === cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+      <div class="field-row">
+        <div><label>日期</label><input type="date" id="tx-date" value="${esc(t ? t.date : todayStr())}"></div>
+        <div><label>金額(元)</label><input type="number" id="tx-amount" inputmode="numeric" value="${t ? num(t.amount) : ''}"></div>
+      </div>
+      <div id="tx-buy-box" class="${cat === '買球' ? '' : 'hidden'}">
+        <label>球種</label>
+        <select id="tx-shuttle">
+          ${Shuttles.list().map(s => `<option value="${esc(s.id)}" ${t && t.shuttleId === s.id ? 'selected' : ''}>${esc(s.name)} · 一筒 ${num(s.balls)} 顆 ${money(s.price)}</option>`).join('')}
+          <option value="" ${t && !t.shuttleId ? 'selected' : ''}>自訂(不從球種帶)</option>
+        </select>
+        <div class="field-row">
+          <div><label>買幾筒</label><input type="number" id="tx-tubes" inputmode="numeric" value="${t ? num(t.tubes) : 1}"></div>
+          <div><label>共幾顆</label><input type="number" id="tx-qty" inputmode="numeric" value="${t ? num(t.qty) : ''}"></div>
+        </div>
+        <p class="hint" id="tx-unit"></p>
+      </div>
+      <label>備註(選填)</label>
+      <input type="text" id="tx-note" value="${esc(t ? t.note : '')}" placeholder="例如:YONEX AS-9 兩筒">
+      <button class="btn primary block" id="tx-save">儲存</button>
+      ${t ? '<button class="btn danger block" id="tx-del">刪除這筆</button>' : ''}
+    `);
+
+    const catSel = document.getElementById('tx-cat');
+    const buyBox = document.getElementById('tx-buy-box');
+    const shSel = document.getElementById('tx-shuttle');
+    const tubes = document.getElementById('tx-tubes');
+    const qty = document.getElementById('tx-qty');
+    const amount = document.getElementById('tx-amount');
+    const unitHint = document.getElementById('tx-unit');
+
+    const syncQty = () => buyBox.classList.toggle('hidden', catSel.value !== '買球');
+    catSel.addEventListener('change', syncQty);
+
+    /* 選了球種就自動算金額和顆數:一筒價 × 筒數、一筒顆數 × 筒數 */
+    const fillFromShuttle = () => {
+      const s = Shuttles.byId(shSel.value);
+      if (!s) { unitHint.textContent = '自訂:金額和顆數請自己填,顆數會算進羽球庫存。'; return; }
+      const n = num(tubes.value);
+      amount.value = Math.round(num(s.price) * n);
+      qty.value = Math.round(num(s.balls) * n);
+      unitHint.textContent = `${s.name} 單顆 ${Shuttles.unitLabel(s)} · ${n} 筒共 ${qty.value} 顆`;
+    };
+    shSel.addEventListener('change', fillFromShuttle);
+    tubes.addEventListener('input', fillFromShuttle);
+    if (!t) fillFromShuttle(); else {   // 編輯舊帳目時不要覆蓋原本輸入的金額
+      const s = Shuttles.byId(shSel.value);
+      unitHint.textContent = s ? `${s.name} 單顆 ${Shuttles.unitLabel(s)}` : '';
+    }
+
+    document.querySelectorAll('#tx-kind button').forEach(b =>
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#tx-kind button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const list = b.dataset.kind === 'in' ? this.IN_CATS : this.OUT_CATS;
+        catSel.innerHTML = list.map(c => `<option>${esc(c)}</option>`).join('');
+        syncQty();
+      }));
+
+    document.getElementById('tx-save').addEventListener('click', () => {
+      const amt = num(amount.value);
+      if (!amt) { toast('請輸入金額'); return; }
+      const isBuy = catSel.value === '買球';
+      const rec = {
+        id: t ? t.id : uid(),
+        date: document.getElementById('tx-date').value || todayStr(),
+        kind: document.querySelector('#tx-kind button.active').dataset.kind,
+        cat: catSel.value,
+        amount: amt,
+        qty: isBuy ? num(qty.value) : 0,
+        shuttleId: isBuy ? shSel.value : '',
+        tubes: isBuy ? num(tubes.value) : 0,
+        note: document.getElementById('tx-note').value.trim(),
+      };
+      const list = this.txns();
+      const i = list.findIndex(x => x.id === rec.id);
+      if (i >= 0) list[i] = rec; else list.push(rec);
+      this.saveTxns(list);
+      Modal.close();
+      this.render();
+      toast('已儲存');
+    });
+
+    const del = document.getElementById('tx-del');
+    if (del) del.addEventListener('click', () => {
+      if (!confirm('確定刪除這筆帳目?')) return;
+      this.saveTxns(this.txns().filter(x => x.id !== t.id));
+      Modal.close();
+      this.render();
+      toast('已刪除');
+    });
+  },
+};
