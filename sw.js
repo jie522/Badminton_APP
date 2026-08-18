@@ -4,22 +4,22 @@
  * 這樣既不會蓋掉 index.html 裡 ?v= 的快取破壞機制,離線時又還有東西可看。
  * 改版時把 CACHE 的日期換掉,舊快取會在啟用時自動清掉。
  */
-const CACHE = 'badmap-20260818b';
+const CACHE = 'badmap-20260818c';
 
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=20260818b',
-  './js/store.js?v=20260818b',
-  './js/ui.js?v=20260818b',
-  './js/sync.js?v=20260818b',
-  './js/shuttles.js?v=20260818b',
-  './js/members.js?v=20260818b',
-  './js/sessions.js?v=20260818b',
-  './js/finance.js?v=20260818b',
-  './js/photos.js?v=20260818b',
-  './js/app.js?v=20260818b',
+  './css/style.css?v=20260818c',
+  './js/store.js?v=20260818c',
+  './js/ui.js?v=20260818c',
+  './js/sync.js?v=20260818c',
+  './js/shuttles.js?v=20260818c',
+  './js/members.js?v=20260818c',
+  './js/sessions.js?v=20260818c',
+  './js/finance.js?v=20260818c',
+  './js/photos.js?v=20260818c',
+  './js/app.js?v=20260818c',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',

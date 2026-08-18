@@ -132,11 +132,36 @@ const Finance = {
     </div>`;
   },
 
-  /* 羽球庫存:買進的顆數 − 各場用掉的顆數 */
+  /* 羽球庫存合計(每一種球的明細見 Shuttles.stock()) */
   shuttleStock() {
-    const bought = this.txns().filter(t => t.cat === '買球').reduce((n, t) => n + num(t.qty), 0);
-    const used = Sessions.list().reduce((n, s) => n + num(s.shuttles), 0);
-    return { bought, used, left: bought - used };
+    return Shuttles.stock().reduce((a, r) => ({
+      bought: a.bought + r.bought, used: a.used + r.used, left: a.left + r.left,
+    }), { bought: 0, used: 0, left: 0 });
+  },
+
+  /* 各球種庫存卡:哪一種還剩幾顆、快用完了沒 */
+  stockHtml() {
+    const rows = Shuttles.stock();
+    if (!rows.length) return '';
+    return `<div class="chart-card">
+      <div class="chart-head"><span class="chart-title">羽球庫存</span>
+        <span class="chart-legend"><span>買進 − 用掉</span></span></div>
+      <div class="card-list">
+        ${rows.map(r => `
+          <div class="row-card ${r.left <= 0 ? 'out-left' : r.left < 6 ? '' : 'in-left'}">
+            <div class="row-main">
+              <div class="row-title" style="font-size:15px">${esc(r.name)}
+                ${r.left <= 0 && r.bought ? '<span class="chip unpaid">用完了</span>'
+                  : r.left > 0 && r.left < 6 ? '<span class="chip unpaid">快用完</span>' : ''}</div>
+              <div class="row-sub">買 ${r.bought} / 用 ${r.used} · 每顆 ${Shuttles.priceLabel(r.unit)}</div>
+            </div>
+            <div class="row-right">
+              <div class="row-amount ${r.left <= 0 ? 'out' : ''}">${r.left}<span style="font-size:12px"> 顆</span></div>
+              <div class="row-note">庫存值 ${money(Math.max(0, r.left) * r.unit)}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
   },
 
   /* ---------- 畫面 ---------- */
@@ -167,6 +192,7 @@ const Finance = {
         <div class="stat"><div class="k">待收臨打費</div><div class="v ${this.unpaidGuest() ? 'out' : ''}" style="font-size:15px">${money(this.unpaidGuest())}</div></div>
       </div>
       ${this.chartHtml(rows)}
+      ${this.stockHtml()}
       ${this.seasonPayHtml()}`;
 
     const box = document.getElementById('finance-list');

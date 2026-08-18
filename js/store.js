@@ -4,7 +4,8 @@
  *   members  球員       { id, name, type:'season'|'guest', gender:'M'|'F', phone, note, active, createdAt }
  *   seasons  季別       { id, name, start, end, fee }
  *   payments 季費繳納   { id, seasonId, memberId, amount, date, note }
- *   sessions 打球場次   { id, date, venue, time, courtFee, shuttles,
+ *   sessions 打球場次   { id, date, venue, time, courtFee,
+ *                        shuttleUse:[{sid, n}],   ← 這場哪一種球用了幾顆(sid 空字串 = 未指定球種)
  *                        attendees:[memberId], guests:[{mid, fee, paid}],
  *                        note, photos:[{id, caption}], createdAt }
  *   shuttles 羽球品項   { id, name, balls, price, current }   單顆成本 = price / balls
@@ -35,8 +36,11 @@ const Store = {
     localStorage.setItem(this.KEYS[key], JSON.stringify(value));
   },
 
-  /* 同步到 Google Sheet 的資料表(不含 settings:設定是每支手機各自的) */
-  TABLES: ['members', 'seasons', 'payments', 'sessions', 'shuttles', 'txns'],
+  /* 同步到 Google Sheet 的資料表(不含 settings:設定是每支手機各自的)
+   * 順序有意義:Sheet 上「季打名單」「用球明細」這些給人看的欄位,是寫入當下去查
+   * 球員 / 球種名稱組出來的,所以被參照的表(members、shuttles)要排在 sessions 前面,
+   * 不然第一次整批上傳時那幾欄會印出 id 而不是名字。 */
+  TABLES: ['members', 'seasons', 'shuttles', 'payments', 'sessions', 'txns'],
 
   exportAll() {
     const data = { app: 'BADMAP', version: 1, exportedAt: new Date().toISOString() };
@@ -111,6 +115,16 @@ function migrate() {
     members.forEach(m => { if (!m.gender) m.gender = 'M'; });
     Store.save('members', members);
   }
+  /* 舊版一場只記一個總用球數 → 改成分球種記,舊資料掛到「目前使用」的球種 */
+  const sessions = Store.load('sessions', []);
+  if (sessions.some(s => s.shuttles !== undefined && !s.shuttleUse)) {
+    const cur = (Store.load('shuttles', []).find(x => x.current) || Store.load('shuttles', [])[0] || {}).id || '';
+    sessions.forEach(s => {
+      if (!s.shuttleUse) s.shuttleUse = num(s.shuttles) > 0 ? [{ sid: cur, n: num(s.shuttles) }] : [];
+      delete s.shuttles;
+    });
+    Store.save('sessions', sessions);
+  }
 }
 
 function pick(obj, keys) {
@@ -161,6 +175,14 @@ function shortDate(iso) {
   if (!m) return iso || '';
   const d = new Date(+m[1], +m[2] - 1, +m[3]);
   return `${+m[2]}/${+m[3]}(${WEEKDAYS[d.getDay()]})`;
+}
+
+/* '2026-08-18' → { md: '8/18', wd: '週二' },給場次卡左邊的日期方塊用 */
+function dateParts(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return { md: iso || '', wd: '' };
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return { md: `${+m[2]}/${+m[3]}`, wd: '週' + WEEKDAYS[d.getDay()] };
 }
 
 function monthOf(iso) { return String(iso || '').slice(0, 7); }

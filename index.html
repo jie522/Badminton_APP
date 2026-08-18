@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=20260818b">
+<link rel="stylesheet" href="css/style.css?v=20260818c">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -52,7 +52,7 @@
     </div>
     <div id="session-list" class="card-list"></div>
     <div id="session-empty" class="empty hidden">
-      <div class="empty-icon">🏸</div>
+      <div class="empty-icon" data-icon="shuttle" data-size="52"></div>
       <p>還沒有打球紀錄<br>按右下角「＋」記第一場</p>
     </div>
   </section>
@@ -61,9 +61,10 @@
   <section id="page-members" class="page">
     <div id="season-card" class="card season-card"></div>
     <div class="search-box">
-      <span class="s-icon">🔍</span>
+      <span class="s-icon" data-icon="search" data-size="18"></span>
       <input type="search" id="member-search" placeholder="搜尋名字、電話、備註" autocomplete="off">
-      <button id="member-search-clear" class="s-clear hidden" type="button" aria-label="清除搜尋">✕</button>
+      <button id="member-search-clear" class="s-clear hidden" type="button"
+              data-icon="close" data-size="16" aria-label="清除搜尋"></button>
     </div>
     <div class="segmented" id="member-filter">
       <button data-type="season" class="active">季打</button>
@@ -72,7 +73,7 @@
     </div>
     <div id="member-list" class="card-list"></div>
     <div id="member-empty" class="empty hidden">
-      <div class="empty-icon">👥</div>
+      <div class="empty-icon" data-icon="users" data-size="52"></div>
       <p>還沒有球員<br>按右下角「＋」新增</p>
     </div>
   </section>
@@ -87,7 +88,7 @@
     </div>
     <div id="finance-list" class="card-list"></div>
     <div id="finance-empty" class="empty hidden">
-      <div class="empty-icon">💰</div>
+      <div class="empty-icon" data-icon="wallet" data-size="52"></div>
       <p>還沒有帳目<br>記一場球或按「＋」新增收支</p>
     </div>
   </section>
@@ -97,7 +98,7 @@
     <p class="hint page-hint">每場打完可以上傳照片,存在自己的 Google Drive,球友打開 App 都看得到。</p>
     <div id="photo-groups"></div>
     <div id="photo-empty" class="empty hidden">
-      <div class="empty-icon">📷</div>
+      <div class="empty-icon" data-icon="camera" data-size="52"></div>
       <p>還沒有照片<br>按右下角「＋」上傳這週的照片</p>
     </div>
   </section>
@@ -151,7 +152,7 @@
       <input type="url" id="script-url" placeholder="貼上 Apps Script 網頁應用程式網址 (https://script.google.com/…/exec)" autocomplete="off">
       <div class="btn-row">
         <button id="save-script" class="btn primary">儲存並啟用</button>
-        <button id="sync-now" class="btn">🔄 立即同步</button>
+        <button id="sync-now" class="btn">立即同步</button>
       </div>
       <p id="sync-status" class="hint"></p>
     </div>
@@ -159,8 +160,8 @@
       <h2>資料備份</h2>
       <p class="hint">沒啟用同步時,資料只存在這支手機的瀏覽器裡。換手機前記得先匯出。</p>
       <div class="btn-row">
-        <button id="export-data" class="btn">📤 匯出資料</button>
-        <button id="import-data" class="btn">📥 匯入資料</button>
+        <button id="export-data" class="btn">匯出資料</button>
+        <button id="import-data" class="btn">匯入資料</button>
       </div>
       <input type="file" id="import-file" accept=".json" hidden>
     </div>
@@ -175,14 +176,14 @@
 </main>
 
 <!-- 右下角新增鈕:單手好按 -->
-<button id="fab-add" class="fab" aria-label="新增">＋</button>
+<button id="fab-add" class="fab" data-icon="plus" data-size="26" aria-label="新增"></button>
 
 <nav class="tab-bar">
-  <button class="tab active" data-page="sessions"><span class="tab-icon" aria-hidden="true">🏸</span>場次</button>
-  <button class="tab" data-page="members"><span class="tab-icon" aria-hidden="true">👥</span>人員</button>
-  <button class="tab" data-page="finance"><span class="tab-icon" aria-hidden="true">💰</span>收支</button>
-  <button class="tab" data-page="photos"><span class="tab-icon" aria-hidden="true">📷</span>相簿</button>
-  <button class="tab" data-page="settings"><span class="tab-icon" aria-hidden="true">⚙️</span>設定</button>
+  <button class="tab active" data-page="sessions"><span class="tab-icon" data-icon="shuttle" data-size="23"></span>場次</button>
+  <button class="tab" data-page="members"><span class="tab-icon" data-icon="users" data-size="23"></span>人員</button>
+  <button class="tab" data-page="finance"><span class="tab-icon" data-icon="wallet" data-size="23"></span>收支</button>
+  <button class="tab" data-page="photos"><span class="tab-icon" data-icon="camera" data-size="23"></span>相簿</button>
+  <button class="tab" data-page="settings"><span class="tab-icon" data-icon="sliders" data-size="23"></span>設定</button>
 </nav>
 
 <!-- 通用彈窗 -->
@@ -193,14 +194,14 @@
 <!-- 照片放大 -->
 <div id="lightbox" class="lightbox hidden"></div>
 
-<script src="js/store.js?v=20260818b"></script>
-<script src="js/ui.js?v=20260818b"></script>
-<script src="js/sync.js?v=20260818b"></script>
-<script src="js/shuttles.js?v=20260818b"></script>
-<script src="js/members.js?v=20260818b"></script>
-<script src="js/sessions.js?v=20260818b"></script>
-<script src="js/finance.js?v=20260818b"></script>
-<script src="js/photos.js?v=20260818b"></script>
-<script src="js/app.js?v=20260818b"></script>
+<script src="js/store.js?v=20260818c"></script>
+<script src="js/ui.js?v=20260818c"></script>
+<script src="js/sync.js?v=20260818c"></script>
+<script src="js/shuttles.js?v=20260818c"></script>
+<script src="js/members.js?v=20260818c"></script>
+<script src="js/sessions.js?v=20260818c"></script>
+<script src="js/finance.js?v=20260818c"></script>
+<script src="js/photos.js?v=20260818c"></script>
+<script src="js/app.js?v=20260818c"></script>
 </body>
 </html>

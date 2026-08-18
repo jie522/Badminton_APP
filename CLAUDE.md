@@ -22,7 +22,9 @@
 新增欄位時三個地方要一起改,少一個資料就會在同步時掉:
 
 1. `js/store.js` 開頭的資料表註解
-2. `apps-script/Code.gs` 的 `TABLES` 定義(`fields` + `headers`,必要時 `extras` 人看的欄位)
+2. `apps-script/Code.gs` 的 `TABLES` 定義(`fields` + `headers`,必要時 `extras` 人看的欄位)。
+   `extras` 裡查名字的欄位(季打名單、用球明細…)是**寫入當下**去查對照表組出來的,所以
+   `Store.TABLES` 的順序要讓被參照的表(members、shuttles)排在 sessions 前面,否則第一次整批上傳會印出 id
 3. 若是陣列/物件欄位,加進 `Code.gs` 的 `JSON_FIELDS`;數字加進 `NUM_FIELDS`;日期加進 `DATE_FIELDS` 和 `TEXT_FIELDS`;布林欄位加進 `BOOL_FIELDS`,**空白時該視為 true 的才加進 `BOOL_DEFAULT_TRUE`**(`active` 是,`current` 不是)
 
 舊資料的欄位補齊寫在 `js/store.js` 的 `migrate()`,啟動時跑一次;新增有預設值的欄位時記得一起補。
@@ -34,8 +36,9 @@
 - **季打球員**:繳固定季費,場地費由公款支付,**每場不再收錢**。季費只記「已繳 / 未繳」,不逐場扣款。
 - **臨打球友**:每場收一次單場費,**金額依性別**(`guestFeeOf(member)` → `cfg().guestFeeM` / `guestFeeF`,預設男 180 / 女 160),可個別調金額、標記已收 / 未收。性別欄位缺漏時 `genderOf()` 一律當男生算,不要讓缺欄位變成收不到錢。
 - **每場公款進出** = 臨打收入 − 場地費。
-- **球費不進每場現金流**:買球的錢在「收支」頁記買球那筆時就已經付出去了,場次裡的「用球數」只用來算球材成本參考值和羽球庫存(`Finance.shuttleStock()`)。**不要為了讓每場帳看起來完整而把球費加進現金流,那會重複記帳。**
-- **單顆球成本一律走 `shuttleUnitPrice()`**(= 目前使用球種的 `price / balls`),不要直接讀 `cfg().shuttlePrice` —— 那只是沒登記任何球種時的備援值。
+- **球費不進每場現金流**:買球的錢在「收支」頁記買球那筆時就已經付出去了,場次裡的用球明細只用來算球材成本參考值和羽球庫存。**不要為了讓每場帳看起來完整而把球費加進現金流,那會重複記帳。**
+- **用球分球種記**:`session.shuttleUse = [{sid, n}]`,一場可以同時用到多種球,各自用 `Shuttles.unitPriceOf(sid)` 算錢再加總(`Sessions.calc()` 的 `shuttleCost`)。`sid` 是空字串代表「未指定球種」,單價退回 `cfg().shuttlePrice`。**不要再回頭改成單一 `shuttles` 數字欄位。**
+- **庫存分球種算**:`Shuttles.stock()` = 每種球的「買球帳目顆數 − 各場用掉顆數」。編輯舊場次時畫面上的即時庫存要用 `Sessions.liveLeft()`(先把這場原本用掉的加回來),否則會自己扣自己兩次。
 - **自動帳 vs 手動帳**:場地費、臨打收入、季費都是從場次和繳納紀錄**即時算出來的**(`Finance.ledger()`),不寫進 `txns`。`txns` 只放買球、贊助、聚餐這類自己輸入的收支。這樣改一場的資料,帳目自動跟著變,不會有兩份對不起來的數字。
 
 ## 同步設計

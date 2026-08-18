@@ -277,6 +277,7 @@ if ('serviceWorker' in navigator) {
 /* ---------- 啟動 ---------- */
 migrate();                            // 舊資料補上新欄位(性別、男女兩價)
 Theme.apply();                        // 深淺色和主題色
+hydrateIcons();                       // 把 data-icon 換成線條 SVG
 loadThemeForm();
 loadSettingsForm();
 refreshSyncStatus();

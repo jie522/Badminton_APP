@@ -28,11 +28,13 @@ const Sessions = {
     const guestIncome = guests.filter(g => g.paid).reduce((n, g) => n + num(g.fee), 0);
     const guestUnpaid = guests.filter(g => !g.paid).reduce((n, g) => n + num(g.fee), 0);
     const courtFee = num(s.courtFee);
-    const shuttles = num(s.shuttles);
-    const shuttleCost = shuttles * shuttleUnitPrice();
+    /* 用球分球種記:各算各的單顆成本再加總 */
+    const use = (s.shuttleUse || []).filter(u => num(u.n) > 0);
+    const shuttles = use.reduce((n, u) => n + num(u.n), 0);
+    const shuttleCost = use.reduce((n, u) => n + num(u.n) * Shuttles.unitPriceOf(u.sid), 0);
     return {
       seasonCount, guestCount, head,
-      guestIncome, guestUnpaid, courtFee, shuttles, shuttleCost,
+      guestIncome, guestUnpaid, courtFee, use, shuttles, shuttleCost,
       net: guestIncome - courtFee,                           // 本場現金流
       cost: courtFee + shuttleCost,                          // 本場實際成本
       perHead: head ? (courtFee + shuttleCost) / head : 0,    // 每人成本(參考)
@@ -57,9 +59,17 @@ const Sessions = {
     const list = all.filter(s => this.inRange(s, this.filter)).sort(byDateDesc);
 
     empty.classList.toggle('hidden', list.length > 0);
-    empty.querySelector('p').innerHTML = all.length
-      ? '這個期間還沒有打球紀錄'
-      : '還沒有打球紀錄<br>按右下角「＋」記第一場';
+    /* 有紀錄卻被篩選擋掉時,要講清楚是哪個期間在擋 ——
+     * 不然「剛記完一場卻看不到」會以為資料不見了(季別已經結束時最常遇到) */
+    const season = Seasons.current();
+    empty.querySelector('p').innerHTML = !all.length
+      ? '還沒有打球紀錄<br>按右下角「＋」記第一場'
+      : this.filter === 'season' && season
+        ? `${esc(season.name)}(${esc(season.start || '')} ~ ${esc(season.end || '')})沒有打球紀錄<br>
+           這個球季以外的紀錄,切到「全部」就看得到`
+        : this.filter === 'month'
+          ? '這個月還沒有打球紀錄<br>切到「全部」看看以前的'
+          : '這個期間還沒有打球紀錄';
 
     let heads = 0, net = 0, shuttles = 0;
     list.forEach(s => { const c = this.calc(s); heads += c.head; net += c.net; shuttles += c.shuttles; });
@@ -71,13 +81,14 @@ const Sessions = {
     box.innerHTML = list.map(s => {
       const c = this.calc(s);
       const photos = (s.photos || []).length;
-      return `<button class="row-card ${c.net >= 0 ? 'in-left' : 'out-left'}" data-id="${esc(s.id)}">
+      const d = dateParts(s.date);
+      return `<button class="row-card" data-id="${esc(s.id)}">
+        <div class="date-tile"><b>${esc(d.md)}</b><span>${esc(d.wd)}</span></div>
         <div class="row-main">
-          <div class="row-title">${esc(shortDate(s.date))}
-            ${s.venue ? `<span style="font-size:13px;font-weight:600">${esc(s.venue)}</span>` : ''}
+          <div class="row-title">${esc(s.venue || '打球')}
             ${c.guestUnpaid ? `<span class="chip unpaid">有人未付</span>` : ''}
           </div>
-          <div class="row-sub">季打 ${c.seasonCount} · 臨打 ${c.guestCount} · 用球 ${c.shuttles} 顆${s.time ? ' · ' + esc(s.time) : ''}${photos ? ' · 📷 ' + photos : ''}</div>
+          <div class="row-sub">季打 ${c.seasonCount} · 臨打 ${c.guestCount} · 用球 ${c.shuttles} 顆${c.use.length > 1 ? `(${c.use.length} 種)` : ''}${s.time ? ' · ' + esc(s.time) : ''}${photos ? ' · 照片 ' + photos : ''}</div>
         </div>
         <div class="row-right">
           <div class="row-amount ${c.net >= 0 ? 'in' : 'out'}">${c.net >= 0 ? '+' : ''}${money(c.net)}</div>
@@ -120,9 +131,9 @@ const Sessions = {
     bar.classList.remove('hidden');
     bar.classList.toggle('open', this.unpaidOpen);
     bar.innerHTML = `
-      <span class="a-icon">💰</span>
+      <span class="a-icon">${icon('coins', '', 18)}</span>
       <span class="a-text">還有 ${money(total)} 臨打費沒收 · ${rows.length} 人次</span>
-      <span class="a-arrow">▶</span>`;
+      <span class="a-arrow">${icon('chevron', '', 16)}</span>`;
     bar.onclick = () => {
       this.unpaidOpen = !this.unpaidOpen;
       this.renderUnpaid();
@@ -173,12 +184,16 @@ const Sessions = {
       ? JSON.parse(JSON.stringify(s))
       : {
           id: uid(), date: todayStr(), venue: c.venue, time: c.time,
-          courtFee: num(c.courtFee), shuttles: 0,
+          courtFee: num(c.courtFee), shuttleUse: [],
           attendees: [], guests: [], note: '', photos: [],
           createdAt: new Date().toISOString(),
         };
     if (!this.draft.attendees) this.draft.attendees = [];
     if (!this.draft.guests) this.draft.guests = [];
+    if (!this.draft.shuttleUse) this.draft.shuttleUse = [];
+    /* 這場「原本」用了幾顆:算即時庫存時要先扣掉,不然編輯舊場次會被自己重複扣一次 */
+    this.savedUse = {};
+    ((s && s.shuttleUse) || []).forEach(u => { this.savedUse[u.sid || ''] = num(u.n); });
 
     Modal.open(`
       <button class="modal-close" data-close aria-label="關閉">✕</button>
@@ -203,8 +218,9 @@ const Sessions = {
     d.venue = g('ss-venue').value.trim();
     d.time = g('ss-time').value.trim();
     d.courtFee = num(g('ss-court').value);
-    d.shuttles = num(g('ss-shuttles').value);
     d.note = g('ss-note').value.trim();
+    document.querySelectorAll('#ss-use .use-row').forEach(row =>
+      this.setUse(row.dataset.sid, row.querySelector('.u-n').value));
     document.querySelectorAll('#ss-guests .guest-row').forEach(row => {
       const gu = this.guestOf(row.dataset.mid);
       const el = row.querySelector('.g-fee');
@@ -226,10 +242,12 @@ const Sessions = {
       </div>
       <label for="ss-venue">場地</label>
       <input type="text" id="ss-venue" value="${esc(d.venue)}" placeholder="例如:大同國小活動中心">
-      <div class="field-row">
-        <div><label for="ss-court">場地費(元)</label><input type="number" id="ss-court" inputmode="numeric" value="${num(d.courtFee)}"></div>
-        <div><label for="ss-shuttles">用掉幾顆球</label><input type="number" id="ss-shuttles" inputmode="numeric" value="${num(d.shuttles)}"></div>
-      </div>
+      <label for="ss-court">場地費(元)</label>
+      <input type="number" id="ss-court" inputmode="numeric" value="${num(d.courtFee)}">
+
+      <h3>用球 <span class="hint" id="ss-usecount"></span></h3>
+      <div id="ss-use"></div>
+      <p class="hint" style="margin-top:6px">每種球分開記,各自算成本、各自扣庫存。<span id="ss-use-tip"></span></p>
 
       <h3>季打出席 <span class="hint" id="ss-pickcount"></span></h3>
       <div class="pick-grid" id="ss-picks"></div>
@@ -264,6 +282,7 @@ const Sessions = {
 
     this.renderPicks();
     this.renderGuests();
+    this.renderUse();
     this.renderSettle();
     this.bindForm();
   },
@@ -272,12 +291,11 @@ const Sessions = {
   bindForm() {
     const d = this.draft;
 
-    /* 場地費 / 用球數邊打邊反映在結算 */
-    ['ss-court', 'ss-shuttles'].forEach(idn =>
-      document.getElementById(idn).addEventListener('input', () => {
-        this.readForm();
-        this.renderSettle();
-      }));
+    /* 場地費邊打邊反映在結算 */
+    document.getElementById('ss-court').addEventListener('input', () => {
+      this.readForm();
+      this.renderSettle();
+    });
 
     const allBtn = document.getElementById('ss-all');
     if (allBtn) allBtn.addEventListener('click', () => {
@@ -363,6 +381,96 @@ const Sessions = {
       members.length && this.draft.attendees.length === members.length ? '全部取消' : '全部出席';
   },
 
+  /* ---------- 用球(每種球分開記) ---------- */
+  useOf(sid) {
+    const u = (this.draft.shuttleUse || []).find(x => (x.sid || '') === (sid || ''));
+    return u ? num(u.n) : 0;
+  },
+
+  setUse(sid, n) {
+    sid = sid || '';
+    n = Math.max(0, Math.round(num(n)));
+    const use = this.draft.shuttleUse;
+    const i = use.findIndex(u => (u.sid || '') === sid);
+    if (n <= 0) { if (i >= 0) use.splice(i, 1); }
+    else if (i >= 0) use[i].n = n;
+    else use.push({ sid, n });
+  },
+
+  /* 即時庫存:已存檔的庫存 + 這場原本用掉的 − 現在表單上填的
+   * (編輯舊場次時,那幾顆已經扣過了,不先加回來會被扣兩次) */
+  liveLeft(sid) {
+    sid = sid || '';
+    return Shuttles.stockOf(sid) + (this.savedUse[sid] || 0) - this.useOf(sid);
+  },
+
+  useRowHtml(o) {
+    const n = this.useOf(o.sid);
+    const left = this.liveLeft(o.sid);
+    return `<div class="use-row ${n > 0 ? 'on' : ''}" data-sid="${esc(o.sid)}">
+      <div class="u-main">
+        <div class="u-name">${esc(o.name)}</div>
+        <div class="u-sub">每顆 ${Shuttles.priceLabel(o.unit)} · <span class="u-left ${left < 0 ? 'out' : ''}">剩 ${left} 顆</span></div>
+      </div>
+      <div class="stepper">
+        <button class="u-minus" type="button" aria-label="${esc(o.name)} 減少一顆">−</button>
+        <input class="u-n" type="number" inputmode="numeric" min="0" value="${n}" aria-label="${esc(o.name)} 用了幾顆">
+        <button class="u-plus" type="button" aria-label="${esc(o.name)} 增加一顆">＋</button>
+      </div>
+    </div>`;
+  },
+
+  renderUse() {
+    const box = document.getElementById('ss-use');
+    const opts = Shuttles.optionsFor(this.draft.shuttleUse);
+    box.innerHTML = opts.map(o => this.useRowHtml(o)).join('');
+    box.querySelectorAll('.use-row').forEach(row => this.bindUseRow(row));
+
+    const tip = document.getElementById('ss-use-tip');
+    if (tip) tip.innerHTML = Shuttles.list().length
+      ? ''
+      : '還沒登記球種,先到「設定 → 羽球管理」加一種,才算得出球錢和庫存。';
+    this.syncUseMeta();
+  },
+
+  bindUseRow(row) {
+    const sid = row.dataset.sid;
+    const input = row.querySelector('.u-n');
+
+    const apply = n => {
+      this.setUse(sid, n);
+      input.value = this.useOf(sid);
+      this.afterUseChange(row, sid);
+    };
+    row.querySelector('.u-minus').addEventListener('click', () => { apply(this.useOf(sid) - 1); haptic(); });
+    row.querySelector('.u-plus').addEventListener('click', () => { apply(this.useOf(sid) + 1); haptic(); });
+    input.addEventListener('input', () => {
+      this.setUse(sid, input.value);
+      this.afterUseChange(row, sid);
+    });
+  },
+
+  /* 只更新這一列的庫存字樣 + 上面的小計和結算,不重畫整段(避免輸入中失焦) */
+  afterUseChange(row, sid) {
+    const n = this.useOf(sid);
+    const left = this.liveLeft(sid);
+    row.classList.toggle('on', n > 0);
+    const el = row.querySelector('.u-left');
+    el.textContent = `剩 ${left} 顆`;
+    el.classList.toggle('out', left < 0);
+    this.syncUseMeta();
+    this.renderSettle();
+  },
+
+  syncUseMeta() {
+    const el = document.getElementById('ss-usecount');
+    if (!el) return;
+    const c = this.calc(this.draft);
+    el.textContent = c.shuttles
+      ? `(共 ${c.shuttles} 顆 · 球材 ${money(c.shuttleCost)})`
+      : '(還沒記)';
+  },
+
   /* ---------- 臨打球友 ---------- */
   guestRowHtml(g) {
     const m = Members.byId(g.mid);
@@ -440,8 +548,10 @@ const Sessions = {
   renderSettle() {
     const d = this.draft;
     const calc = this.calc(d);
-    const cur = Shuttles.current();
-    const unit = cur ? `${esc(cur.name)} 每顆 ${Shuttles.unitLabel(cur)}` : `每顆 ${money(cfg().shuttlePrice)}`;
+    /* 用球明細:一種球一行,寫清楚幾顆 × 單價 = 多少錢 */
+    const useLines = calc.use.map(u =>
+      `${esc(Shuttles.nameOf(u.sid))} ${num(u.n)} 顆 × ${Shuttles.priceLabel(Shuttles.unitPriceOf(u.sid))}
+       = ${money(num(u.n) * Shuttles.unitPriceOf(u.sid))}`).join('<br>');
 
     document.getElementById('ss-settle').innerHTML = `
       <div class="settle">
@@ -450,7 +560,7 @@ const Sessions = {
         <div class="settle-line"><span>場地費</span><span class="n out">-${money(calc.courtFee)}</span></div>
         <div class="settle-line total"><span>本場公款進出</span><span class="n ${calc.net >= 0 ? 'in' : 'out'}">${calc.net >= 0 ? '+' : ''}${money(calc.net)}</span></div>
       </div>
-      <p class="settle-note">出席 ${calc.head} 人,用球 ${calc.shuttles} 顆(${unit},球材成本 ${money(calc.shuttleCost)},買球時已付款)。<br>
+      <p class="settle-note">出席 ${calc.head} 人。${calc.shuttles ? `<br>${useLines}<br>球材成本合計 ${money(calc.shuttleCost)}(買球時已付款,不算在上面的公款進出)。` : ''}<br>
       本場實際成本 ${money(calc.cost)},平均每人 ${money(calc.perHead)}。</p>`;
   },
 

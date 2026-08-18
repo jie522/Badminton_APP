@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 3;
+var VERSION = 4;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -55,16 +55,22 @@ var TABLES = {
   },
   sessions: {
     tab: '場次',
-    fields: ['id', 'date', 'venue', 'time', 'courtFee', 'shuttles', 'attendees', 'guests', 'note', 'photos', 'createdAt'],
-    headers: ['id', '日期', '場地', '時間', '場地費', '用球數', '季打出席(id)', '臨打(json)', '備註', '照片(json)', '建立時間'],
-    extraHeaders: ['季打名單', '臨打名單', '出席人數', '臨打收入'],
+    fields: ['id', 'date', 'venue', 'time', 'courtFee', 'shuttleUse', 'attendees', 'guests', 'note', 'photos', 'createdAt'],
+    headers: ['id', '日期', '場地', '時間', '場地費', '用球(json)', '季打出席(id)', '臨打(json)', '備註', '照片(json)', '建立時間'],
+    extraHeaders: ['季打名單', '臨打名單', '出席人數', '臨打收入', '用球明細', '用球總數'],
     extras: function (o, ctx) {
       var att = (o.attendees || []).map(ctx.memberName).join('、');
       var guests = o.guests || [];
       var gl = guests.map(function (g) { return ctx.memberName(g.mid) + (g.paid ? '' : '(未收)'); }).join('、');
       var income = 0;
       guests.forEach(function (g) { if (g.paid) income += Number(g.fee) || 0; });
-      return [att, gl, (o.attendees || []).length + guests.length, income];
+      var use = o.shuttleUse || [];
+      var total = 0;
+      var detail = use.map(function (u) {
+        total += Number(u.n) || 0;
+        return (u.sid ? ctx.shuttleName(u.sid) : '未指定') + ' ' + (Number(u.n) || 0) + ' 顆';
+      }).join('、');
+      return [att, gl, (o.attendees || []).length + guests.length, income, detail, total];
     },
   },
   shuttles: {
@@ -88,7 +94,7 @@ var TABLES = {
   },
 };
 
-var JSON_FIELDS = ['attendees', 'guests', 'photos'];
+var JSON_FIELDS = ['attendees', 'guests', 'photos', 'shuttleUse'];
 var NUM_FIELDS = ['fee', 'amount', 'qty', 'courtFee', 'shuttles', 'balls', 'price', 'tubes'];
 var BOOL_FIELDS = ['active', 'current'];
 /* 值是空白時要當成 true 的布林欄位(active 沒填代表還在打;current 沒填代表不是目前使用的球種) */
@@ -146,9 +152,16 @@ function sheetFor(name) {
   var book = ss();
   var sh = book.getSheetByName(def.tab);
   if (!sh) sh = book.insertSheet(def.tab);
+  var want = def.headers.concat(def.extraHeaders || []);
   if (sh.getLastRow() === 0) {
-    sh.appendRow(def.headers.concat(def.extraHeaders || []));
+    sh.appendRow(want);
     sh.setFrozenRows(1);
+  } else {
+    // 欄位有增減時(App 改版)把表頭補成新的,不然標題會跟資料對不起來
+    var got = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), want.length)).getValues()[0];
+    var same = want.length === sh.getLastColumn();
+    for (var i = 0; same && i < want.length; i++) same = String(got[i]) === want[i];
+    if (!same) sh.getRange(1, 1, 1, want.length).setValues([want]);
   }
   // id / 日期這類欄位鎖成純文字,避免 Google 自動轉型
   def.fields.forEach(function (f, i) {
