@@ -52,7 +52,11 @@ git add -A && git commit -m "說明" && git push
 
 沒設定也能用,只是資料只存在自己這支手機。設定完之後:資料存雲端、換手機不會不見、球友看得到同一份、可以上傳照片。
 
-照 [apps-script/Code.gs](apps-script/Code.gs) 檔案開頭的 6 個步驟做:建一份 Google Sheet → 擴充功能 → Apps Script → 貼上程式 → 部署成網頁應用程式 → 把網址貼到 App 設定頁。
+照 [apps-script/Code.gs](apps-script/Code.gs) 檔案開頭的 6 個步驟做:打開自己的 Google Sheet → 擴充功能 → Apps Script → 貼上程式 → 部署成網頁應用程式 → 把網址貼到 App 設定頁。
+
+> ⚠️ **部署產生的 Apps Script 網址等於這份 Sheet 的鑰匙**:拿到網址的人就能讀寫你的球隊資料。
+> 只私下傳給球友,**不要貼進這個公開 repo、Issue 或任何公開的地方**。
+> App 把它存在每支手機自己的瀏覽器裡,不會進版控。
 
 分頁(球員 / 季別 / 季費繳納 / 場次 / 羽球品項 / 帳目)App 會自動建立,裡面除了程式用的 id 欄位,也有「季打名單」「臨打名單」這種給人看的中文欄位,直接在 Sheet 上就能對帳。
 

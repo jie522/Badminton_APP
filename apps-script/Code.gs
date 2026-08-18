@@ -18,7 +18,13 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 2;
+var VERSION = 3;
+
+/* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
+ * 這樣它會自動綁定那份 Sheet,不用填任何 id。
+ * 只有當你把它貼在「獨立的 Apps Script 專案」時,才需要告訴它要寫進哪份 Sheet:
+ * 到「專案設定 → 指令碼屬性」新增 SHEET_ID = 試算表網址中 /d/ 和 /edit 之間那一長串。
+ * 指令碼屬性只存在你自己的專案裡,不會出現在公開的 GitHub 上。 */
 
 /* 照片資料夾:留空就自動用(或建立)根目錄下的「羽球管理APP 相簿」。
  * 想放在指定資料夾,就到「專案設定 → 指令碼屬性」新增 PHOTO_FOLDER_ID = 資料夾 id。 */
@@ -126,11 +132,20 @@ function handle(action, d) {
 }
 
 /* ---------- 分頁 ---------- */
+/* 綁在 Sheet 上時直接拿當前試算表;獨立專案就用指令碼屬性 SHEET_ID 指定 */
+function ss() {
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) return active;
+  var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  if (!id) throw new Error('找不到試算表:請用「Sheet → 擴充功能 → Apps Script」部署,或在指令碼屬性設定 SHEET_ID');
+  return SpreadsheetApp.openById(id);
+}
+
 function sheetFor(name) {
   var def = TABLES[name];
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(def.tab);
-  if (!sh) sh = ss.insertSheet(def.tab);
+  var book = ss();
+  var sh = book.getSheetByName(def.tab);
+  if (!sh) sh = book.insertSheet(def.tab);
   if (sh.getLastRow() === 0) {
     sh.appendRow(def.headers.concat(def.extraHeaders || []));
     sh.setFrozenRows(1);
@@ -147,7 +162,7 @@ function sheetFor(name) {
 function fmtDate(v) {
   // 不用 instanceof Date:getValues 回傳的 Date 來自另一個 context,判斷會失效
   if (v && typeof v.getTime === 'function') {
-    var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+    var tz = ss().getSpreadsheetTimeZone();
     return Utilities.formatDate(new Date(v.getTime()), tz, 'yyyy-MM-dd');
   }
   return String(v == null ? '' : v).trim();
