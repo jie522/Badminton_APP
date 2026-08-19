@@ -143,9 +143,10 @@ const Sessions = {
     if (!this.unpaidOpen) return;
 
     listBox.innerHTML = rows.map(r => {
-      const name = Members.name(r.mid);
+      const gm = Members.byId(r.mid);
+      const name = gm ? gm.name : '(已刪除)';
       return `<div class="guest-row" data-sid="${esc(r.sid)}" data-mid="${esc(r.mid)}">
-        <span class="g-name">${avatarHtml(name, 'sm')}<span class="g-nm">${esc(name)}</span></span>
+        <span class="g-name">${avatarHtml(name, 'sm', gm && gm.avatarId)}<span class="g-nm">${esc(name)}</span></span>
         <span class="g-when">${esc(shortDate(r.date))}</span>
         <span class="num" style="font-weight:700">${money(r.fee)}</span>
         <button class="g-paid" type="button">標記已收</button>
@@ -477,7 +478,7 @@ const Sessions = {
     const name = Members.name(g.mid);
     const gender = genderOf(m);
     return `<div class="guest-row" data-mid="${esc(g.mid)}">
-      <span class="g-name">${avatarHtml(name, 'sm')}<span class="g-nm">${esc(name)}</span>
+      <span class="g-name">${avatarHtml(name, 'sm', m && m.avatarId)}<span class="g-nm">${esc(name)}</span>
         <span class="chip ${gender === 'F' ? 'guest' : 'off'}">${GENDER[gender]}</span></span>
       <input type="number" class="g-fee" inputmode="numeric" value="${num(g.fee)}" aria-label="${esc(name)} 單場費">
       <button class="g-paid ${g.paid ? 'on' : ''}" type="button">${g.paid ? '✓ 已收' : '未收'}</button>

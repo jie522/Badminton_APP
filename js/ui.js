@@ -103,7 +103,12 @@ function avatarChar(name) {
   return s[s.length - 1];
 }
 
-function avatarHtml(name, cls = '') {
+/* avatarId 有值就顯示球員自己上傳的照片(存在 Google Drive,見 Members.uploadAvatar),
+ * 沒有就退回名字色塊 —— 跟場次/季別/收支的照片不一樣,大頭貼只存一張,換照片直接覆蓋。 */
+function avatarHtml(name, cls = '', avatarId = '') {
+  if (avatarId) {
+    return `<img class="avatar ${cls}" src="${esc(Sync.photoUrl(avatarId, 160))}" alt="${esc(name)}" loading="lazy">`;
+  }
   return `<div class="avatar ${cls}" style="--av:${avatarColor(name)}" aria-hidden="true">${esc(avatarChar(name))}</div>`;
 }
 

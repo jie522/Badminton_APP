@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 6;
+var VERSION = 7;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -34,8 +34,8 @@ var PHOTO_FOLDER_NAME = '羽球管理APP 相簿';
 var TABLES = {
   members: {
     tab: '球員',
-    fields: ['id', 'name', 'type', 'gender', 'phone', 'note', 'active', 'createdAt', 'seasonFee'],
-    headers: ['id', '姓名', '類型', '性別', '電話', '備註', '啟用', '建立時間', '個人季費'],
+    fields: ['id', 'name', 'type', 'gender', 'phone', 'note', 'active', 'createdAt', 'seasonFee', 'avatarId'],
+    headers: ['id', '姓名', '類型', '性別', '電話', '備註', '啟用', '建立時間', '個人季費', '大頭貼id'],
     extraHeaders: ['類型(中文)', '性別(中文)'],
     extras: function (o) {
       return [o.type === 'guest' ? '臨打' : '季打', o.gender === 'F' ? '女' : '男'];
@@ -101,7 +101,7 @@ var BOOL_FIELDS = ['active', 'current'];
 var BOOL_DEFAULT_TRUE = ['active'];
 var DATE_FIELDS = ['date', 'start', 'end'];
 /* 這些欄位一定要當文字存,不然 Google 會把 id 或日期自動轉型 */
-var TEXT_FIELDS = ['id', 'seasonId', 'memberId', 'shuttleId', 'date', 'start', 'end', 'time', 'phone', 'createdAt', 'seasonFee'];
+var TEXT_FIELDS = ['id', 'seasonId', 'memberId', 'shuttleId', 'date', 'start', 'end', 'time', 'phone', 'createdAt', 'seasonFee', 'avatarId'];
 
 /* ---------- 入口 ---------- */
 function doPost(e) {

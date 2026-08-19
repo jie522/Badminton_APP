@@ -290,10 +290,21 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   display: flex; align-items: center; justify-content: center;
   font-size: 16px; font-weight: 700; color: #fff;
   background: var(--av, var(--accent));
+  object-fit: cover;   /* 有上傳照片時(<img>)填滿圓形不變形,色塊(<div>)不受影響 */
 }
 .avatar.sm { width: 30px; height: 30px; font-size: 13px; }
 .avatar.lg { width: 56px; height: 56px; font-size: 22px; }
 .avatar.dim { opacity: .45; }
+
+/* 編輯球員資料裡可以點的大頭貼:圓形按鈕 + 右下角相機小徽章 */
+.avatar-pick { position: relative; border: none; background: none; padding: 0; border-radius: 50%; display: block; margin: 0 auto; }
+.avatar-pick-badge {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--card);
+}
 
 .chip {
   font-size: 10.5px; padding: 2px 7px; border-radius: 999px; line-height: 1.6;

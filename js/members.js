@@ -230,7 +230,7 @@ const Members = {
        * 有沒有繳錢才是要一眼看到的重點,單獨放右邊、保留紅/綠/中性的顏色語意,
        * 兩種資訊分開才不會擠成一排同色的藥丸看不出誰是誰。 */
       return `<button class="row-card" data-id="${esc(m.id)}">
-        ${avatarHtml(m.name, m.active === false ? 'dim' : '')}
+        ${avatarHtml(m.name, m.active === false ? 'dim' : '', m.avatarId)}
         <div class="row-main">
           <div class="row-title">${esc(m.name)}
             <span class="chip off">${this.TYPE[m.type]}</span>
@@ -305,7 +305,7 @@ const Members = {
         const done = fee > 0 && paid >= fee;
         /* 免繳的人不給按:按了會產生一筆 $0 的繳費紀錄,帳目上會多出沒意義的列 */
         return `<div class="guest-row">
-          <span class="g-name">${avatarHtml(m.name, 'sm')}<span class="g-nm">${esc(m.name)}</span>
+          <span class="g-name">${avatarHtml(m.name, 'sm', m.avatarId)}<span class="g-nm">${esc(m.name)}</span>
             ${hasOwnSeasonFee(m) ? '<span class="chip">個人價</span>' : ''}</span>
           <span class="hint num">${paid ? money(paid) + ' / ' : ''}${money(fee)}</span>
           ${fee > 0
@@ -338,6 +338,13 @@ const Members = {
     Modal.open(`
       <button class="modal-close" data-close aria-label="關閉">✕</button>
       <h2>${m ? '編輯球員' : '新增球員'}</h2>
+      ${m ? `
+        <button type="button" class="avatar-pick" id="mb-avatar-btn" aria-label="更換大頭貼">
+          ${avatarHtml(m.name, 'lg', m.avatarId)}
+          <span class="avatar-pick-badge">${icon('camera', '', 14)}</span>
+        </button>
+        ${m.avatarId ? '<button type="button" class="link-btn" id="mb-avatar-remove" style="display:block;margin:2px auto 4px">移除大頭貼</button>' : ''}
+      ` : ''}
       <label>姓名 / 綽號</label>
       <input type="text" id="mb-name" value="${esc(m ? m.name : '')}" placeholder="例如:阿翔">
       <label>類型</label>
@@ -367,6 +374,17 @@ const Members = {
       <button class="btn primary block" id="mb-save">儲存</button>
       ${m ? '<button class="btn danger block" id="mb-del">刪除球員</button>' : ''}
     `);
+    if (m) {
+      document.getElementById('mb-avatar-btn').addEventListener('click', () =>
+        this.pickAvatar(m.id, () => this.openEdit(m.id)));
+      const rm = document.getElementById('mb-avatar-remove');
+      if (rm) rm.addEventListener('click', async () => {
+        if (!await ask('移除大頭貼?')) return;
+        this.removeAvatar(m.id);
+        this.openEdit(m.id);
+      });
+    }
+
     /* 三組單選(類型 / 性別 / 狀態)行為一樣,一起綁 */
     document.querySelectorAll('#modal .type-picker').forEach(group =>
       group.querySelectorAll('button').forEach(b =>
@@ -391,6 +409,7 @@ const Members = {
           ? '' : num(document.getElementById('mb-fee').value),
         active: activeBtn ? activeBtn.dataset.active === '1' : true,
         createdAt: m ? m.createdAt : new Date().toISOString(),
+        avatarId: m ? (m.avatarId || '') : '',   // 存檔是整包重建物件,大頭貼要顯式帶過去才不會不見
       };
       const list = this.list();
       const i = list.findIndex(x => x.id === rec.id);
@@ -414,6 +433,59 @@ const Members = {
       Finance.render();
       toast('已刪除');
     });
+  },
+
+  /* ---------- 大頭貼 ----------
+   * 只存一張(不像場次/季別/收支的 photos 是相簿陣列),換照片就覆蓋,
+   * 舊檔案丟到 Drive 垃圾桶,不留孤兒檔案佔空間。
+   */
+  pickAvatar(id, onDone) {
+    if (!Sync.enabled()) { toast('大頭貼存在 Google Drive,請先到「設定」啟用同步'); return; }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.hidden = true;
+    document.body.appendChild(input);
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      input.remove();
+      if (file) await this.uploadAvatar(id, file);
+      if (onDone) onDone();
+    });
+    input.click();
+  },
+
+  async uploadAvatar(id, file) {
+    const m = this.byId(id);
+    if (!m) return;
+    const oldId = m.avatarId;
+    try {
+      const img = await compressImage(file, 480, 0.85);   // 大頭貼不用像相簿照片那麼大張
+      const newId = await Sync.uploadPhoto({
+        name: `avatar_${id}.jpg`, mime: img.mime, b64: img.b64, sessionDate: 'avatar',
+      });
+      const list = this.list();
+      const rec = list.find(x => x.id === id);
+      rec.avatarId = newId;
+      this.saveList(list);
+      if (oldId) Sync.deletePhoto(oldId);
+      this.render();
+      toast('大頭貼已更新');
+    } catch (e) {
+      toast('上傳失敗,請再試一次');
+    }
+  },
+
+  removeAvatar(id) {
+    const list = this.list();
+    const rec = list.find(x => x.id === id);
+    if (!rec || !rec.avatarId) return;
+    const oldId = rec.avatarId;
+    rec.avatarId = '';
+    this.saveList(list);
+    Sync.deletePhoto(oldId);
+    this.render();
+    toast('已移除大頭貼');
   },
 
   /* ---------- 球員詳情 ---------- */
@@ -464,7 +536,7 @@ const Members = {
     Modal.open(`
       <button class="modal-close" data-close aria-label="關閉">✕</button>
       <div style="display:flex;align-items:center;gap:14px">
-        ${avatarHtml(m.name, 'lg')}
+        ${avatarHtml(m.name, 'lg', m.avatarId)}
         <div style="min-width:0">
           <h2 style="margin-bottom:6px">${esc(m.name)}</h2>
           <div style="display:flex;gap:6px;flex-wrap:wrap">

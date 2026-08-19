@@ -71,7 +71,10 @@
   要讓新的資料表也能放照片,在這裡加一筆設定就好,不用另外寫上傳 / 顯示 / 刪除邏輯。
   **這三張表的編輯彈窗存檔時都是整包重建 `rec` 物件**(不是深拷貝原紀錄),
   一定要把 `photos: t ? (t.photos || []) : []` 帶進 `rec`,不然存檔會把照片清空
-  (`Sessions.save()` 因為是深拷貝 draft 所以天然沒這個問題,只有 `Seasons.openEdit` / `Finance.openEdit` 要注意)。
+  (`Sessions.save()` 因為是深拷貝 draft 所以天然沒這個問題,`Seasons.openEdit` / `Finance.openEdit` / `Members.openEdit` 存檔都是整包重建,要注意)。
+- **球員大頭貼**跟場次/季別/收支的照片不一樣,只存一張(`member.avatarId`,單一 Drive 檔案 id,不是陣列),
+  換照片用 `Members.uploadAvatar()` 直接覆蓋、把舊檔案丟到 Drive 垃圾桶,不會累積孤兒檔案。
+  同樣要注意 `Members.openEdit` 存檔時整包重建 `rec`,要帶 `avatarId: m ? (m.avatarId || '') : ''`。
 
 ## 互動慣例
 

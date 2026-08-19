@@ -2,7 +2,8 @@
  *
  * 資料表(每張都是一個陣列,存在 localStorage,啟用同步後鏡像到 Google Sheet):
  *   members  球員       { id, name, type:'season'|'guest', gender:'M'|'F', phone, note, active, createdAt,
- *                        seasonFee }   ← 個人季費;留白 = 用季別預設,填 0 = 免繳(見 seasonFeeOf)
+ *                        seasonFee,   ← 個人季費;留白 = 用季別預設,填 0 = 免繳(見 seasonFeeOf)
+ *                        avatarId }   ← 大頭貼,Google Drive 檔案 id,沒上傳就退回名字色塊(見 avatarHtml)
  *   seasons  季別       { id, name, start, end, fee, photos:[{id, caption}] }
  *   payments 季費繳納   { id, seasonId, memberId, amount, date, note }
  *   sessions 打球場次   { id, date, venue, time, courtFee,
