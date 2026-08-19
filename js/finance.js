@@ -9,9 +9,55 @@ const Finance = {
   filter: 'all',
   OUT_CATS: ['買球', '包場 / 押金', '團服 / 器材', '聚餐', '其他支出'],
   IN_CATS: ['贊助 / 補助', '其他收入'],
+  /* 起始餘額不放進上面兩個分類清單:它是設定頁單獨一筆的特例(見 openingBalance),
+   * 不放進去就不會在「記一筆收支」的分類選單裡被選到,也就不會有人手動重複記一筆。 */
+  OPENING_CAT: '期初餘額',
 
   txns() { return Store.load('txns', []); },
   saveTxns(l) { Store.save('txns', l); Sync.bg('txns'); },
+
+  /* ---------- 起始餘額 ----------
+   * 中途才開始用這個 App 記帳,帳戶裡可能早就有錢(或欠款),這裡讓隊長補一筆起始值。
+   * 存成 txns 裡「期初餘額」這個特殊分類的單一筆紀錄(金額可正可負),
+   * 這樣不用另外開一張同步表:它跟其他手動帳一樣會同步、會出現在流水帳裡,
+   * 差別只在於改用設定頁的專屬表單來改,不走「記一筆收支」的彈窗。
+   */
+  openingBalance() {
+    const t = this.txns().find(x => x.cat === this.OPENING_CAT);
+    if (!t) return { amount: 0, date: '' };
+    return { amount: t.kind === 'out' ? -num(t.amount) : num(t.amount), date: t.date };
+  },
+
+  /* 永遠只留一筆:金額填 0(或清空)就等於刪除這筆設定。
+   * 改用原地更新(保留原本的 id 和 photos),不要整筆丟掉重建 ——
+   * 這筆現在也能掛照片(例如舊帳本的照片),每次改金額都重建會讓照片憑空不見。 */
+  setOpeningBalance(amount, date) {
+    const n = num(amount);
+    const list = this.txns();
+    const i = list.findIndex(x => x.cat === this.OPENING_CAT);
+    if (n === 0) {
+      if (i >= 0) list.splice(i, 1);
+    } else {
+      const rec = {
+        id: i >= 0 ? list[i].id : uid(),
+        date: date || todayStr(),
+        kind: n > 0 ? 'in' : 'out', cat: this.OPENING_CAT,
+        amount: Math.abs(n), qty: 0, shuttleId: '', tubes: 0,
+        note: '接續舊帳本的起始金額',
+        photos: i >= 0 ? (list[i].photos || []) : [],
+      };
+      if (i >= 0) list[i] = rec; else list.push(rec);
+    }
+    this.saveTxns(list);
+  },
+
+  loadOpeningForm() {
+    const amt = document.getElementById('ob-amount');
+    if (!amt) return;
+    const o = this.openingBalance();
+    amt.value = o.amount || '';
+    document.getElementById('ob-date').value = o.date || todayStr();
+  },
 
   /* ---------- 完整流水帳 ---------- */
   ledger() {
@@ -167,11 +213,14 @@ const Finance = {
   /* ---------- 畫面 ---------- */
   render() {
     const rows = this.ledger();
-    const all = this.totals(rows);
+    const all = this.totals(rows);           // 總餘額要含起始餘額,不然帳目對不起來
     const season = Seasons.current();
+    /* 起始餘額不算「本季」收支,也不放進趨勢圖 —— 它是設定值不是這季發生的活動,
+     * 混進去會讓「本季收入」憑空多一筆,金額大的話還會把趨勢圖其他月份的長條壓扁。 */
+    const activity = rows.filter(r => r.cat !== this.OPENING_CAT);
     const seasonRows = season
-      ? rows.filter(r => r.date >= (season.start || '') && r.date <= (season.end || '9999'))
-      : rows;
+      ? activity.filter(r => r.date >= (season.start || '') && r.date <= (season.end || '9999'))
+      : activity;
     const st = this.totals(seasonRows);
     const stock = this.shuttleStock();
 
@@ -191,7 +240,7 @@ const Finance = {
           <div class="v" style="font-size:15px">${Shuttles.unitLabel()}<span style="font-size:12px"> /顆</span></div></div>
         <div class="stat"><div class="k">待收臨打費</div><div class="v ${this.unpaidGuest() ? 'out' : ''}" style="font-size:15px">${money(this.unpaidGuest())}</div></div>
       </div>
-      ${this.chartHtml(rows)}
+      ${this.chartHtml(activity)}
       ${this.stockHtml()}
       ${this.seasonPayHtml()}`;
 
@@ -204,7 +253,8 @@ const Finance = {
       <button class="row-card ${r.kind === 'in' ? 'in-left' : 'out-left'}" data-i="${i}">
         <div class="row-main">
           <div class="row-title" style="font-size:15px">${esc(r.cat)}
-            ${r.src === 'txn' ? '' : '<span class="chip off">自動</span>'}</div>
+            ${r.cat === this.OPENING_CAT ? '<span class="chip off">設定值</span>'
+              : r.src === 'txn' ? '' : '<span class="chip off">自動</span>'}</div>
           <div class="row-sub">${esc(shortDate(r.date))}${r.note ? ' · ' + esc(r.note) : ''}${r.qty ? ` · ${r.qty} 顆` : ''}</div>
         </div>
         <div class="row-right">
@@ -215,7 +265,8 @@ const Finance = {
     box.querySelectorAll('.row-card').forEach(el =>
       el.addEventListener('click', () => {
         const r = list[+el.dataset.i];
-        if (r.src === 'txn') this.openEdit(r.srcId);
+        if (r.cat === this.OPENING_CAT) { switchPage('settings'); this.loadOpeningForm(); document.getElementById('ob-amount').focus(); }
+        else if (r.src === 'txn') this.openEdit(r.srcId);
         else if (r.src === 'session') Sessions.openEdit(r.srcId);
         else if (r.src === 'payment') Members.openDetail(r.srcId);
       }));
@@ -263,9 +314,22 @@ const Finance = {
       </div>
       <label>備註(選填)</label>
       <input type="text" id="tx-note" value="${esc(t ? t.note : '')}" placeholder="例如:YONEX AS-9 兩筒">
+      ${t ? `
+        <h3>照片 <span class="hint">(${(t.photos || []).length} 張)</span></h3>
+        <p class="hint" style="margin-top:-6px">收據、贊助證明這類可以拍照存起來。</p>
+        <div class="photo-grid" id="tx-photos">
+          ${(t.photos || []).map(p => `<img src="${esc(Sync.photoUrl(p.id, 400))}" alt="" loading="lazy" data-pid="${esc(p.id)}">`).join('')}
+        </div>
+        <button class="btn block" id="tx-upload" type="button">上傳照片</button>` : ''}
       <button class="btn primary block" id="tx-save">儲存</button>
       ${t ? '<button class="btn danger block" id="tx-del">刪除這筆</button>' : ''}
     `);
+    if (t) {
+      document.getElementById('tx-upload').addEventListener('click', () =>
+        Photos.pickAndUpload('txns', t.id, () => this.openEdit(t.id)));
+      document.querySelectorAll('#tx-photos img').forEach(img =>
+        img.addEventListener('click', () => Photos.openLightbox('txns', t.id, img.dataset.pid)));
+    }
 
     const catSel = document.getElementById('tx-cat');
     const buyBox = document.getElementById('tx-buy-box');
@@ -317,6 +381,7 @@ const Finance = {
         shuttleId: isBuy ? shSel.value : '',
         tubes: isBuy ? num(tubes.value) : 0,
         note: document.getElementById('tx-note').value.trim(),
+        photos: t ? (t.photos || []) : [],   // 存檔是整包重建物件,照片要顯式帶過去才不會不見
       };
       const list = this.txns();
       const i = list.findIndex(x => x.id === rec.id);

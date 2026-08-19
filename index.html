@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=20260819">
+<link rel="stylesheet" href="css/style.css?v=20260819d">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -138,6 +138,17 @@
       <button id="save-settings" class="btn primary">儲存設定</button>
     </div>
     <div class="card">
+      <h2>公款起始餘額</h2>
+      <p class="hint">如果是中途才開始用這個 App 記帳,帳戶裡可能已經有錢(或欠款)。
+      這裡填的金額會直接算進「收支」頁的公款餘額,只需要設定一次;之後的收支還是照場次、季費、買球這些自動算,不用逐筆補。
+      虧空可以填負數,例如 -800。<br><b>這筆設定會同步給所有球友</b>,跟上面的收費設定不一樣(那些只存在這支手機)。</p>
+      <div class="field-row">
+        <div><label for="ob-amount">起始餘額(元)</label><input type="number" id="ob-amount" inputmode="numeric" placeholder="例如 5000"></div>
+        <div><label for="ob-date">起始日期</label><input type="date" id="ob-date"></div>
+      </div>
+      <button id="ob-save" class="btn primary">儲存起始餘額</button>
+    </div>
+    <div class="card">
       <h2>羽球管理</h2>
       <p class="hint">登記買的球種:一筒幾顆、一筒多少錢,APP 自動換算成一顆多少錢。
       設為「目前使用」的球種,會用來算每場的球材成本和買球金額。</p>
@@ -194,14 +205,14 @@
 <!-- 照片放大 -->
 <div id="lightbox" class="lightbox hidden"></div>
 
-<script src="js/store.js?v=20260819"></script>
-<script src="js/ui.js?v=20260819"></script>
-<script src="js/sync.js?v=20260819"></script>
-<script src="js/shuttles.js?v=20260819"></script>
-<script src="js/members.js?v=20260819"></script>
-<script src="js/sessions.js?v=20260819"></script>
-<script src="js/finance.js?v=20260819"></script>
-<script src="js/photos.js?v=20260819"></script>
-<script src="js/app.js?v=20260819"></script>
+<script src="js/store.js?v=20260819d"></script>
+<script src="js/ui.js?v=20260819d"></script>
+<script src="js/sync.js?v=20260819d"></script>
+<script src="js/shuttles.js?v=20260819d"></script>
+<script src="js/members.js?v=20260819d"></script>
+<script src="js/sessions.js?v=20260819d"></script>
+<script src="js/finance.js?v=20260819d"></script>
+<script src="js/photos.js?v=20260819d"></script>
+<script src="js/app.js?v=20260819d"></script>
 </body>
 </html>

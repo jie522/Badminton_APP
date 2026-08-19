@@ -41,8 +41,12 @@ const Seasons = {
   },
 
   pay(seasonId, memberId, amount, date) {
+    const amt = num(amount);
+    /* $0 或負數不建立紀錄:免繳的人本來就不該有繳費紀錄,建了只會在收支頁多一筆
+     * 看不出意義的「季費 $0」,下次真的收錢時又會疊一筆新的,看起來像分兩次繳。 */
+    if (amt <= 0) return;
     const list = this.payments();
-    list.push({ id: uid(), seasonId, memberId, amount: num(amount), date: date || todayStr(), note: '' });
+    list.push({ id: uid(), seasonId, memberId, amount: amt, date: date || todayStr(), note: '' });
     this.savePayments(list);
   },
 
@@ -90,9 +94,21 @@ const Seasons = {
       <input type="number" id="se-fee" inputmode="numeric" value="${s ? num(s.fee) : 3000}">
       <p class="hint" style="margin:-4px 0 4px">大部分人收這個金額。要單獨調某個人(學生半價、教練免繳),
       到那位球員的資料裡填「個人季費」,不用動這裡。</p>
+      ${s ? `
+        <h3>照片 <span class="hint">(${(s.photos || []).length} 張)</span></h3>
+        <div class="photo-grid" id="se-photos">
+          ${(s.photos || []).map(p => `<img src="${esc(Sync.photoUrl(p.id, 400))}" alt="" loading="lazy" data-pid="${esc(p.id)}">`).join('')}
+        </div>
+        <button class="btn block" id="se-upload" type="button">上傳這季的照片</button>` : ''}
       <button class="btn primary block" id="se-save">儲存</button>
       ${s ? '<button class="btn danger block" id="se-del">刪除這一季</button>' : ''}
     `);
+    if (s) {
+      document.getElementById('se-upload').addEventListener('click', () =>
+        Photos.pickAndUpload('seasons', s.id, () => this.openEdit(s.id)));
+      document.querySelectorAll('#se-photos img').forEach(img =>
+        img.addEventListener('click', () => Photos.openLightbox('seasons', s.id, img.dataset.pid)));
+    }
     document.getElementById('se-save').addEventListener('click', () => {
       const name = document.getElementById('se-name').value.trim();
       if (!name) { toast('請輸入季別名稱'); return; }
@@ -102,6 +118,7 @@ const Seasons = {
         start: document.getElementById('se-start').value,
         end: document.getElementById('se-end').value,
         fee: num(document.getElementById('se-fee').value),
+        photos: s ? (s.photos || []) : [],   // 存檔是整包重建物件,照片要顯式帶過去才不會不見
       };
       const list = this.list();
       const i = list.findIndex(x => x.id === rec.id);
@@ -209,16 +226,19 @@ const Members = {
             ? `<span class="chip unpaid">尚欠 ${money(fee - paid)}</span>`
             : '<span class="chip unpaid">季費未繳</span>';
       }
+      /* 類型(季打/臨打)、停打都是「身分」,用中性灰不搶色;
+       * 有沒有繳錢才是要一眼看到的重點,單獨放右邊、保留紅/綠/中性的顏色語意,
+       * 兩種資訊分開才不會擠成一排同色的藥丸看不出誰是誰。 */
       return `<button class="row-card" data-id="${esc(m.id)}">
         ${avatarHtml(m.name, m.active === false ? 'dim' : '')}
         <div class="row-main">
           <div class="row-title">${esc(m.name)}
-            <span class="chip ${m.type === 'guest' ? 'guest' : ''}">${this.TYPE[m.type]}</span>
+            <span class="chip off">${this.TYPE[m.type]}</span>
             ${m.active === false ? '<span class="chip off">停打</span>' : ''}
-            ${payChip}
           </div>
           <div class="row-sub">${GENDER[genderOf(m)]}${m.type === 'guest' ? ` · 單場 ${money(guestFeeOf(m))}` : ''}${m.type === 'season' && hasOwnSeasonFee(m) ? ` · 個人季費 ${money(m.seasonFee)}` : ''} · 出席 ${cnt} 場${m.phone ? ' · ' + esc(m.phone) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>
         </div>
+        ${payChip ? `<div class="row-right">${payChip}</div>` : ''}
       </button>`;
     }).join('');
 

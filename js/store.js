@@ -3,15 +3,18 @@
  * 資料表(每張都是一個陣列,存在 localStorage,啟用同步後鏡像到 Google Sheet):
  *   members  球員       { id, name, type:'season'|'guest', gender:'M'|'F', phone, note, active, createdAt,
  *                        seasonFee }   ← 個人季費;留白 = 用季別預設,填 0 = 免繳(見 seasonFeeOf)
- *   seasons  季別       { id, name, start, end, fee }
+ *   seasons  季別       { id, name, start, end, fee, photos:[{id, caption}] }
  *   payments 季費繳納   { id, seasonId, memberId, amount, date, note }
  *   sessions 打球場次   { id, date, venue, time, courtFee,
  *                        shuttleUse:[{sid, n}],   ← 這場哪一種球用了幾顆(sid 空字串 = 未指定球種)
  *                        attendees:[memberId], guests:[{mid, fee, paid}],
  *                        note, photos:[{id, caption}], createdAt }
  *   shuttles 羽球品項   { id, name, balls, price, current }   單顆成本 = price / balls
- *   txns     手動帳目   { id, date, kind:'in'|'out', cat, amount, qty, shuttleId, tubes, note }
+ *   txns     手動帳目   { id, date, kind:'in'|'out', cat, amount, qty, shuttleId, tubes, note,
+ *                        photos:[{id, caption}] }
  *
+ * 場次、季別、收支都能放照片(見 js/photos.js 的 Photos.OWNERS),存的都是 Google Drive 檔案 id,
+ * 不是圖片本身。
  * 現金流的設計:場地費、臨打費、季費都是「從場次/繳納紀錄自動算出來的帳」,
  * 不重複存進 txns(見 finance.js 的 ledger()),txns 只放買球和其他雜項收支。
  */
@@ -144,6 +147,20 @@ function migrate() {
     });
     Store.save('sessions', sessions);
   }
+  cleanZeroPayments();
+}
+
+/* 清掉 $0 / 負數的季費繳納紀錄(舊版曾在「免繳」狀態下誤按產生 $0 紀錄,
+ * 應收金額不受影響,但收支頁會多一筆看不出意義的「季費 $0」,下次真的收費時
+ * 又疊一筆新紀錄,看起來像分兩次繳)。開機清一次、每次從 Sheet 拉回資料後也清一次
+ * (見 app.js 的 pullAndRender),不然 Sheet 上的舊紀錄會一直蓋回來。
+ * 回傳有沒有清掉東西,呼叫端用這個決定要不要同步回 Sheet。 */
+function cleanZeroPayments() {
+  const list = Store.load('payments', []);
+  const kept = list.filter(p => num(p.amount) > 0);
+  if (kept.length === list.length) return false;
+  Store.save('payments', kept);
+  return true;
 }
 
 function pick(obj, keys) {

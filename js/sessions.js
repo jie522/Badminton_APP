@@ -321,10 +321,10 @@ const Sessions = {
     if (up) up.addEventListener('click', () => {
       this.readForm();
       this.save(false);
-      Photos.pickAndUpload(d.id, () => this.openEdit(d.id));
+      Photos.pickAndUpload('sessions', d.id, () => this.openEdit(d.id));
     });
     document.querySelectorAll('#ss-photos img').forEach(img =>
-      img.addEventListener('click', () => Photos.openLightbox(d.id, img.dataset.pid)));
+      img.addEventListener('click', () => Photos.openLightbox('sessions', d.id, img.dataset.pid)));
 
     document.getElementById('ss-save').addEventListener('click', () => {
       this.readForm();

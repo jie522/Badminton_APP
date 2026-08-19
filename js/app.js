@@ -142,6 +142,16 @@ document.getElementById('save-settings').addEventListener('click', () => {
   toast('設定已儲存');
 });
 
+/* ---------- 設定:公款起始餘額 ---------- */
+document.getElementById('ob-save').addEventListener('click', () => {
+  const raw = document.getElementById('ob-amount').value;
+  const date = document.getElementById('ob-date').value;
+  Finance.setOpeningBalance(raw, date);
+  Finance.loadOpeningForm();
+  Finance.render();
+  toast(num(raw) ? '已儲存公款起始餘額' : '已清除公款起始餘額');
+});
+
 /* ---------- 設定:羽球品項 ---------- */
 document.getElementById('shuttle-add').addEventListener('click', () => Shuttles.openAdd());
 
@@ -184,6 +194,7 @@ function renderAll() {
   Sessions.render();
   Members.render();
   Finance.render();
+  Finance.loadOpeningForm();   // 別的裝置改過起始餘額,同步回來後設定頁的欄位也要跟著換
   Photos.render();
   Shuttles.render();
 }
@@ -192,6 +203,9 @@ async function pullAndRender() {
   setSyncUI('busy', '同步中');
   try {
     await Sync.pull();
+    /* Sheet 上如果還留著舊版產生的 $0 季費紀錄,pull 下來又會蓋回本機,
+     * 清完立刻同步回去,這樣 Sheet 那份也會跟著乾淨,不用每次開機都在清。 */
+    if (cleanZeroPayments()) Sync.bg('payments');
     renderAll();
     refreshSyncStatus();
     return true;

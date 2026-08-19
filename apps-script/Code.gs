@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 5;
+var VERSION = 6;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -43,8 +43,8 @@ var TABLES = {
   },
   seasons: {
     tab: '季別',
-    fields: ['id', 'name', 'start', 'end', 'fee'],
-    headers: ['id', '季別名稱', '開始日期', '結束日期', '季費'],
+    fields: ['id', 'name', 'start', 'end', 'fee', 'photos'],
+    headers: ['id', '季別名稱', '開始日期', '結束日期', '季費', '照片'],
   },
   payments: {
     tab: '季費繳納',
@@ -85,8 +85,8 @@ var TABLES = {
   },
   txns: {
     tab: '帳目',
-    fields: ['id', 'date', 'kind', 'cat', 'amount', 'qty', 'shuttleId', 'tubes', 'note'],
-    headers: ['id', '日期', '收支', '分類', '金額', '顆數', '球種id', '筒數', '備註'],
+    fields: ['id', 'date', 'kind', 'cat', 'amount', 'qty', 'shuttleId', 'tubes', 'note', 'photos'],
+    headers: ['id', '日期', '收支', '分類', '金額', '顆數', '球種id', '筒數', '備註', '照片'],
     extraHeaders: ['收支(中文)', '球種'],
     extras: function (o, ctx) {
       return [o.kind === 'in' ? '收入' : '支出', o.shuttleId ? ctx.shuttleName(o.shuttleId) : ''];
