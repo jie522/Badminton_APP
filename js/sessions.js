@@ -83,10 +83,17 @@ const Sessions = {
       const c = this.calc(s);
       const photos = (s.photos || []).length;
       const d = dateParts(s.date);
+      const cover = (s.photos || [])[0];
+      /* 有照片就用第一張當縮圖取代日期方塊(比日期好認出是哪一場),
+       * 日期改插進標題左邊,不會因為換了縮圖就找不到是哪天;讀不到照片時退回日期方塊。 */
+      const leftTile = cover
+        ? `<img class="date-tile session-thumb" src="${esc(Sync.photoUrl(cover.id, 120))}" alt="" loading="lazy"
+             onerror="Sessions.thumbFallback(this, ${esc(JSON.stringify(d.md))}, ${esc(JSON.stringify(d.wd))})">`
+        : `<div class="date-tile"><b>${esc(d.md)}</b><span>${esc(d.wd)}</span></div>`;
       return `<button class="row-card" data-id="${esc(s.id)}">
-        <div class="date-tile"><b>${esc(d.md)}</b><span>${esc(d.wd)}</span></div>
+        ${leftTile}
         <div class="row-main">
-          <div class="row-title">${esc(s.venue || '打球')}
+          <div class="row-title">${cover ? `<span class="row-date">${esc(d.md)}</span>` : ''}${esc(s.venue || '打球')}
             ${c.guestUnpaid ? `<span class="chip unpaid">有人未付</span>` : ''}
           </div>
           <div class="row-sub">季打 ${c.seasonCount} · 臨打 ${c.guestCount} · 用球 ${c.shuttles} 顆${c.use.length > 1 ? `(${c.use.length} 種)` : ''}${s.time ? ' · ' + esc(s.time) : ''}${photos ? ' · 照片 ' + photos : ''}</div>
@@ -100,6 +107,16 @@ const Sessions = {
 
     box.querySelectorAll('.row-card').forEach(el =>
       el.addEventListener('click', () => this.openEdit(el.dataset.id)));
+  },
+
+  /* 場次卡左邊的縮圖 <img onerror> 讀不到照片時呼叫這個,換回日期方塊 */
+  thumbFallback(img, md, wd) {
+    const div = document.createElement('div');
+    div.className = 'date-tile';
+    const b = document.createElement('b'); b.textContent = md;
+    const span = document.createElement('span'); span.textContent = wd;
+    div.append(b, span);
+    img.replaceWith(div);
   },
 
   /* ---------- 未收的臨打費 ----------

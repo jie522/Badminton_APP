@@ -70,6 +70,9 @@
 - 寫入是**整張表覆寫**(`putTable`),不做逐列 upsert。資料量小(幾十人、一年上百場),換來的是幾乎不會有同步錯位的 bug;代價是同一時間兩支手機改同一張表會後蓋前,這是刻意的取捨,不要改成逐列同步而不先討論。
 - 任何會改資料的操作:先 `Store.save()` 存進手機,再 `Sync.bg(table)` 背景送出。**畫面不要等網路**。
 - 照片存 Google Drive,App 只存 `{id, caption}`,顯示用 `Sync.photoUrl(id, 寬度)`(Drive 的 thumbnail 網址)。上傳前一定要先 `compressImage()`,原圖直傳會超過 Apps Script 的 POST 上限。
+- **任何顯示 Drive 照片的 `<img>` 都要有 `onerror` 退回機制**:Drive 的公開連結分享有時會被公司/學校帳號擋掉(見 `Code.gs` 的 `SHARING_BLOCKED`),讀不到不能讓球友看到瀏覽器的破圖示。
+  兩個現成的例子:`avatarHtml()` 讀不到大頭貼退回名字色塊(`avatarFallback()`)、場次列表讀不到照片縮圖退回日期方塊(`Sessions.thumbFallback()`)。
+  `onerror` 屬性是字串,退回邏輯**不要用字串拼 HTML 塞回去**(雙引號/單引號互相干擾很容易拼壞),改成呼叫一個全域函式、用 DOM API(`createElement`/`replaceWith`)组出替代元素;傳進 `onerror` 的參數要走 `esc(JSON.stringify(x))` 逃逸,不能直接塞名字或其他使用者輸入。
 - **場次、季別、收支都能放照片**,共用 `js/photos.js` 的 `Photos` 模組,存取方式的對照表在 `Photos.OWNERS`——
   要讓新的資料表也能放照片,在這裡加一筆設定就好,不用另外寫上傳 / 顯示 / 刪除邏輯。
   **這三張表的編輯彈窗存檔時都是整包重建 `rec` 物件**(不是深拷貝原紀錄),

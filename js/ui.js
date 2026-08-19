@@ -104,12 +104,26 @@ function avatarChar(name) {
 }
 
 /* avatarId 有值就顯示球員自己上傳的照片(存在 Google Drive,見 Members.uploadAvatar),
- * 沒有就退回名字色塊 —— 跟場次/季別/收支的照片不一樣,大頭貼只存一張,換照片直接覆蓋。 */
+ * 沒有就退回名字色塊 —— 跟場次/季別/收支的照片不一樣,大頭貼只存一張,換照片直接覆蓋。
+ * 照片讀不到(公司/學校帳號常擋 Drive 的公開連結,見 Code.gs 的 SHARING_BLOCKED)也要退回色塊,
+ * 不然球友看到的是瀏覽器的破圖示,不是「沒大頭貼就用一個字代表」的樣子。 */
 function avatarHtml(name, cls = '', avatarId = '') {
   if (avatarId) {
-    return `<img class="avatar ${cls}" src="${esc(Sync.photoUrl(avatarId, 160))}" alt="${esc(name)}" loading="lazy">`;
+    return `<img class="avatar ${cls}" src="${esc(Sync.photoUrl(avatarId, 160))}" alt="${esc(name)}" loading="lazy"
+      onerror="avatarFallback(this, ${esc(JSON.stringify(name))})">`;
   }
   return `<div class="avatar ${cls}" style="--av:${avatarColor(name)}" aria-hidden="true">${esc(avatarChar(name))}</div>`;
+}
+
+/* <img onerror> 讀不到照片時呼叫這個,換成名字色塊(尺寸 / 停打的淡化樣式跟著原本的 class 一起帶) */
+function avatarFallback(img, name) {
+  const cls = img.className.replace(/\bavatar\b/, '').trim();
+  const div = document.createElement('div');
+  div.className = `avatar ${cls}`.trim();
+  div.style.setProperty('--av', avatarColor(name));
+  div.setAttribute('aria-hidden', 'true');
+  div.textContent = avatarChar(name);
+  img.replaceWith(div);
 }
 
 /* ---------- 圖示 ----------
