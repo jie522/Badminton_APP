@@ -429,7 +429,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   display: flex; align-items: center; gap: 6px; overflow: hidden; }
 /* 名字要包一層才能做省略號:flex 容器裡的裸文字是匿名子項,吃不到 text-overflow */
 .guest-row .g-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.guest-row input[type="number"] { width: 82px; padding: 6px 8px; font-size: 14px; text-align: right; }
+.guest-row input[type="number"] { width: 68px; padding: 6px 6px; font-size: 14px; text-align: right; }
 .guest-row .g-paid {
   border: 1px solid var(--border); background: var(--card); color: var(--text2);
   border-radius: 8px; font-size: 12px; padding: 6px 9px; white-space: nowrap; min-height: 34px;
@@ -470,6 +470,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .btn.danger { background: none; color: var(--out); border: 1px solid var(--out); }
 .btn.small { padding: 7px 12px; font-size: 13px; min-height: 38px; }
 .btn.block { width: 100%; margin-top: 16px; }
+.btn .ic { display: inline-block; vertical-align: -3px; margin-right: 4px; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .btn-row .btn { flex: 1; }
 
@@ -510,6 +511,22 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 }
 .modal h2 { font-size: 19px; margin-bottom: 14px; }
 .modal h3 { font-size: 15px; margin: 18px 0 8px; }
+
+/* 標題旁邊的即時淨額徽章(場次表單用),讓人一開彈窗就看到金額,不用滑到最下面 */
+.sess-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.sess-head h2 { margin-bottom: 0; }
+.sess-net {
+  font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+  padding: 5px 12px; border-radius: 999px; flex-shrink: 0; white-space: nowrap;
+}
+.sess-net.in { background: var(--in-soft); color: var(--in); }
+.sess-net.out { background: var(--out-soft); color: var(--out); }
+
+/* 表單裡把「用球」「出席」「結算」各自圈成一塊,用底色跟彈窗本身的卡片色區分,
+ * 一長串 label/input 才不會黏在一起分不出段落。 */
+.form-section { background: var(--bg); border-radius: var(--radius-sm); padding: 12px; margin-top: 14px; }
+.form-section > h3:first-child { margin-top: 0; }
+.form-section.settle-section { background: var(--accent-soft); }
 .modal-close {
   float: right; border: none; background: var(--bg); color: var(--text2);
   width: 32px; height: 32px; border-radius: 50%; font-size: 16px;

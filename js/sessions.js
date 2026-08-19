@@ -216,7 +216,10 @@ const Sessions = {
 
     Modal.open(`
       <button class="modal-close" data-close aria-label="關閉">✕</button>
-      <h2>${s ? '這場紀錄' : '記一場球'}</h2>
+      <div class="sess-head">
+        <h2>${s ? '這場紀錄' : '記一場球'}</h2>
+        <span class="sess-net" id="ss-net-badge"></span>
+      </div>
       <div id="sess-form"></div>
     `);
     this.renderForm();
@@ -269,36 +272,44 @@ const Sessions = {
       <label for="ss-ac">冷氣費(元)</label>
       <input type="number" id="ss-ac" inputmode="numeric" value="${num(d.acFee)}">
 
-      <h3>用球 <span class="hint" id="ss-usecount"></span></h3>
-      <div id="ss-use"></div>
-      <p class="hint" style="margin-top:6px">每種球分開記,各自算成本、各自扣庫存。<span id="ss-use-tip"></span></p>
-
-      <h3>季打出席 <span class="hint" id="ss-pickcount"></span></h3>
-      <div class="pick-grid" id="ss-picks"></div>
-      ${hasSeason ? '<button class="link-btn" id="ss-all" type="button"></button>' : ''}
-
-      <h3>臨打球友 <span class="hint">(男 ${money(c.guestFeeM)} / 女 ${money(c.guestFeeF)})</span></h3>
-      <div id="ss-guests"></div>
-      <div class="inline-add">
-        <input type="text" id="ss-gname" list="guest-names" placeholder="臨打球友名字" autocomplete="off">
-        <button class="btn small" id="ss-ggender" type="button" data-g="${this.guestGender}">${GENDER[this.guestGender]}</button>
-        <button class="btn small" id="ss-gadd" type="button">＋ 加入</button>
+      <div class="form-section">
+        <h3>用球 <span class="hint" id="ss-usecount"></span></h3>
+        <div id="ss-use"></div>
+        <p class="hint" style="margin-top:6px">每種球分開記,各自算成本、各自扣庫存。<span id="ss-use-tip"></span></p>
       </div>
-      <p class="hint" style="margin-top:6px">新朋友第一次來,先切男 / 女再加入,單場費會自動帶。名字打過的直接選就好。</p>
-      <datalist id="guest-names">${guestNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
 
-      <h3>本場結算</h3>
-      <div id="ss-settle"></div>
+      <div class="form-section">
+        <h3>季打出席 <span class="hint" id="ss-pickcount"></span></h3>
+        <div class="pick-grid" id="ss-picks"></div>
+        ${hasSeason ? '<button class="link-btn" id="ss-all" type="button"></button>' : ''}
+
+        <h3>臨打球友 <span class="hint">(男 ${money(c.guestFeeM)} / 女 ${money(c.guestFeeF)})</span></h3>
+        <div id="ss-guests"></div>
+        <div class="inline-add">
+          <input type="text" id="ss-gname" list="guest-names" placeholder="臨打球友名字" autocomplete="off">
+          <button class="btn small" id="ss-ggender" type="button" data-g="${this.guestGender}">${GENDER[this.guestGender]}</button>
+          <button class="btn small" id="ss-gadd" type="button">＋ 加入</button>
+        </div>
+        <p class="hint" style="margin-top:6px">新朋友第一次來,先切男 / 女再加入,單場費會自動帶。名字打過的直接選就好。</p>
+        <datalist id="guest-names">${guestNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      </div>
+
+      <div class="form-section settle-section">
+        <h3>本場結算</h3>
+        <div id="ss-settle"></div>
+      </div>
 
       <label for="ss-note">備註(選填)</label>
       <textarea id="ss-note" placeholder="例如:今天打 3 面場地、換了新球">${esc(d.note)}</textarea>
 
       ${this.isEdit ? `
-        <h3>照片 <span class="hint">(${(d.photos || []).length} 張)</span></h3>
-        <div class="photo-grid" id="ss-photos">
-          ${(d.photos || []).map(p => `<img src="${esc(Sync.photoUrl(p.id, 400))}" alt="" loading="lazy" data-pid="${esc(p.id)}">`).join('')}
-        </div>
-        <button class="btn block" id="ss-upload" type="button">📷 上傳這場的照片</button>` : ''}
+        <div class="form-section">
+          <h3>照片 <span class="hint">(${(d.photos || []).length} 張)</span></h3>
+          <div class="photo-grid" id="ss-photos">
+            ${(d.photos || []).map(p => `<img src="${esc(Sync.photoUrl(p.id, 400))}" alt="" loading="lazy" data-pid="${esc(p.id)}">`).join('')}
+          </div>
+          <button class="btn block" id="ss-upload" type="button">${icon('camera', '', 16)} 上傳這場的照片</button>
+        </div>` : ''}
 
       <button class="btn primary block" id="ss-save" type="button">儲存這場</button>
       ${this.isEdit ? '<button class="btn danger block" id="ss-del" type="button">刪除這場</button>' : ''}
@@ -576,6 +587,13 @@ const Sessions = {
     const useLines = calc.use.map(u =>
       `${esc(Shuttles.nameOf(u.sid))} ${num(u.n)} 顆 × ${Shuttles.priceLabel(Shuttles.unitPriceOf(u.sid))}
        = ${money(num(u.n) * Shuttles.unitPriceOf(u.sid))}`).join('<br>');
+
+    /* 標題旁邊的徽章跟著結算一起更新,不用滑到最下面才看得到淨額 */
+    const badge = document.getElementById('ss-net-badge');
+    if (badge) {
+      badge.className = `sess-net ${calc.net >= 0 ? 'in' : 'out'}`;
+      badge.textContent = `${calc.net >= 0 ? '+' : ''}${money(calc.net)}`;
+    }
 
     document.getElementById('ss-settle').innerHTML = `
       <div class="settle">
