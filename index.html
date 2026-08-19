@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=20260819e">
+<link rel="stylesheet" href="css/style.css?v=20260819f">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -124,13 +124,15 @@
     </div>
     <div class="card">
       <h2>收費設定</h2>
-      <p class="hint">季打球員的場地費已含在季費裡,每場不再收錢;臨打球友每場收一次固定費用,金額依性別自動帶入,現場也可以個別調整。</p>
+      <p class="hint">場地費已改季繳,不再逐場收費 —— 球隊直接在「收支」頁記一筆季費支出(分類選「包場 / 押金」)。
+      每場如果有冷氣費,這裡可以設定預設金額,場次記錄時能個別調整。
+      臨打球友每場收一次固定費用,金額依性別自動帶入,現場也可以個別調整。</p>
       <div class="field-row">
         <div><label for="set-guestFeeM">臨打單場費 · 男生</label><input type="number" id="set-guestFeeM" inputmode="numeric" placeholder="180"></div>
         <div><label for="set-guestFeeF">臨打單場費 · 女生</label><input type="number" id="set-guestFeeF" inputmode="numeric" placeholder="160"></div>
       </div>
-      <label for="set-courtFee">預設場地費(元 / 場)</label>
-      <input type="number" id="set-courtFee" inputmode="numeric" placeholder="800">
+      <label for="set-acFee">預設冷氣費(元 / 場)</label>
+      <input type="number" id="set-acFee" inputmode="numeric" placeholder="0">
       <label for="set-venue">預設場地名稱</label>
       <input type="text" id="set-venue" placeholder="例如:大同國小活動中心">
       <label for="set-time">預設打球時間</label>
@@ -205,14 +207,14 @@
 <!-- 照片放大 -->
 <div id="lightbox" class="lightbox hidden"></div>
 
-<script src="js/store.js?v=20260819e"></script>
-<script src="js/ui.js?v=20260819e"></script>
-<script src="js/sync.js?v=20260819e"></script>
-<script src="js/shuttles.js?v=20260819e"></script>
-<script src="js/members.js?v=20260819e"></script>
-<script src="js/sessions.js?v=20260819e"></script>
-<script src="js/finance.js?v=20260819e"></script>
-<script src="js/photos.js?v=20260819e"></script>
-<script src="js/app.js?v=20260819e"></script>
+<script src="js/store.js?v=20260819f"></script>
+<script src="js/ui.js?v=20260819f"></script>
+<script src="js/sync.js?v=20260819f"></script>
+<script src="js/shuttles.js?v=20260819f"></script>
+<script src="js/members.js?v=20260819f"></script>
+<script src="js/sessions.js?v=20260819f"></script>
+<script src="js/finance.js?v=20260819f"></script>
+<script src="js/photos.js?v=20260819f"></script>
+<script src="js/app.js?v=20260819f"></script>
 </body>
 </html>

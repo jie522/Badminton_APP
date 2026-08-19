@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 7;
+var VERSION = 8;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -55,8 +55,8 @@ var TABLES = {
   },
   sessions: {
     tab: '場次',
-    fields: ['id', 'date', 'venue', 'time', 'courtFee', 'shuttleUse', 'attendees', 'guests', 'note', 'photos', 'createdAt'],
-    headers: ['id', '日期', '場地', '時間', '場地費', '用球(json)', '季打出席(id)', '臨打(json)', '備註', '照片(json)', '建立時間'],
+    fields: ['id', 'date', 'venue', 'time', 'courtFee', 'acFee', 'shuttleUse', 'attendees', 'guests', 'note', 'photos', 'createdAt'],
+    headers: ['id', '日期', '場地', '時間', '場地費(舊制)', '冷氣費', '用球(json)', '季打出席(id)', '臨打(json)', '備註', '照片(json)', '建立時間'],
     extraHeaders: ['季打名單', '臨打名單', '出席人數', '臨打收入', '用球明細', '用球總數'],
     extras: function (o, ctx) {
       var att = (o.attendees || []).map(ctx.memberName).join('、');
@@ -95,7 +95,7 @@ var TABLES = {
 };
 
 var JSON_FIELDS = ['attendees', 'guests', 'photos', 'shuttleUse'];
-var NUM_FIELDS = ['fee', 'amount', 'qty', 'courtFee', 'shuttles', 'balls', 'price', 'tubes'];
+var NUM_FIELDS = ['fee', 'amount', 'qty', 'courtFee', 'acFee', 'shuttles', 'balls', 'price', 'tubes'];
 var BOOL_FIELDS = ['active', 'current'];
 /* 值是空白時要當成 true 的布林欄位(active 沒填代表還在打;current 沒填代表不是目前使用的球種) */
 var BOOL_DEFAULT_TRUE = ['active'];

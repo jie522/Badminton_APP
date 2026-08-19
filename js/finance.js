@@ -65,8 +65,12 @@ const Finance = {
 
     Sessions.list().forEach(s => {
       const c = Sessions.calc(s);
-      if (c.courtFee) rows.push({
+      if (c.courtFee) rows.push({   // 舊制場地費,只有舊資料才會有(場地費已改季繳)
         date: s.date, kind: 'out', cat: '場地費', amount: c.courtFee,
+        note: `${s.venue || '打球'} · ${c.head} 人`, src: 'session', srcId: s.id,
+      });
+      if (c.acFee) rows.push({
+        date: s.date, kind: 'out', cat: '冷氣費', amount: c.acFee,
         note: `${s.venue || '打球'} · ${c.head} 人`, src: 'session', srcId: s.id,
       });
       if (c.guestIncome) rows.push({

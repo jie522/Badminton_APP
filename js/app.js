@@ -121,7 +121,7 @@ document.querySelectorAll('#theme-accent .swatch').forEach(btn =>
   }));
 
 /* ---------- 設定:收費 ---------- */
-const SET_FIELDS = ['guestFeeM', 'guestFeeF', 'courtFee', 'venue', 'time'];
+const SET_FIELDS = ['guestFeeM', 'guestFeeF', 'acFee', 'venue', 'time'];
 
 function loadSettingsForm() {
   const c = cfg();

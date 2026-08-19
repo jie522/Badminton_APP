@@ -6,7 +6,10 @@
  *                        avatarId }   ← 大頭貼,Google Drive 檔案 id,沒上傳就退回名字色塊(見 avatarHtml)
  *   seasons  季別       { id, name, start, end, fee, photos:[{id, caption}] }
  *   payments 季費繳納   { id, seasonId, memberId, amount, date, note }
- *   sessions 打球場次   { id, date, venue, time, courtFee,
+ *   sessions 打球場次   { id, date, venue, time,
+ *                        courtFee,   ← 舊制:場地費逐場收。已改季繳(記一筆手動帳,分類選「包場 / 押金」),
+ *                                       新場次固定是 0,欄位留著只是不讓舊資料的歷史數字消失
+ *                        acFee,      ← 冷氣費,預設 0,新場次的每場設施費用改用這個欄位
  *                        shuttleUse:[{sid, n}],   ← 這場哪一種球用了幾顆(sid 空字串 = 未指定球種)
  *                        attendees:[memberId], guests:[{mid, fee, paid}],
  *                        note, photos:[{id, caption}], createdAt }
@@ -81,7 +84,7 @@ const DEFAULTS = {
   guestFeeM: 180,     // 臨打單場費:男生
   guestFeeF: 160,     // 臨打單場費:女生
   shuttlePrice: 25,   // 單顆羽球成本;沒登記球種時的備援值(見 js/shuttles.js)
-  courtFee: 800,      // 預設場地費
+  acFee: 0,           // 預設冷氣費(場地費已改季繳,不逐場收了)
   venue: '佳青羽球館',
   time: '19:00-22:00',
   theme: 'auto',      // 深色 / 淺色 / 跟隨系統(見 js/ui.js 的 Theme)

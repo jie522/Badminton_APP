@@ -27,17 +27,18 @@ const Sessions = {
     const head = seasonCount + guestCount;
     const guestIncome = guests.filter(g => g.paid).reduce((n, g) => n + num(g.fee), 0);
     const guestUnpaid = guests.filter(g => !g.paid).reduce((n, g) => n + num(g.fee), 0);
-    const courtFee = num(s.courtFee);
+    const courtFee = num(s.courtFee);   // 舊制場地費,新場次固定 0(場地費已改季繳,見 store.js 的欄位註解)
+    const acFee = num(s.acFee);         // 冷氣費,現在每場的設施費用
     /* 用球分球種記:各算各的單顆成本再加總 */
     const use = (s.shuttleUse || []).filter(u => num(u.n) > 0);
     const shuttles = use.reduce((n, u) => n + num(u.n), 0);
     const shuttleCost = use.reduce((n, u) => n + num(u.n) * Shuttles.unitPriceOf(u.sid), 0);
     return {
       seasonCount, guestCount, head,
-      guestIncome, guestUnpaid, courtFee, use, shuttles, shuttleCost,
-      net: guestIncome - courtFee,                           // 本場現金流
-      cost: courtFee + shuttleCost,                          // 本場實際成本
-      perHead: head ? (courtFee + shuttleCost) / head : 0,    // 每人成本(參考)
+      guestIncome, guestUnpaid, courtFee, acFee, use, shuttles, shuttleCost,
+      net: guestIncome - courtFee - acFee,                           // 本場現金流
+      cost: courtFee + acFee + shuttleCost,                          // 本場實際成本
+      perHead: head ? (courtFee + acFee + shuttleCost) / head : 0,   // 每人成本(參考)
     };
   },
 
@@ -92,7 +93,7 @@ const Sessions = {
         </div>
         <div class="row-right">
           <div class="row-amount ${c.net >= 0 ? 'in' : 'out'}">${c.net >= 0 ? '+' : ''}${money(c.net)}</div>
-          <div class="row-note">場地 ${money(c.courtFee)}</div>
+          <div class="row-note">${[c.courtFee ? '場地 ' + money(c.courtFee) : '', c.acFee ? '冷氣 ' + money(c.acFee) : ''].filter(Boolean).join(' · ')}</div>
         </div>
       </button>`;
     }).join('');
@@ -185,7 +186,7 @@ const Sessions = {
       ? JSON.parse(JSON.stringify(s))
       : {
           id: uid(), date: todayStr(), venue: c.venue, time: c.time,
-          courtFee: num(c.courtFee), shuttleUse: [],
+          courtFee: 0, acFee: num(c.acFee), shuttleUse: [],   // 場地費已改季繳,新場次固定 0
           attendees: [], guests: [], note: '', photos: [],
           createdAt: new Date().toISOString(),
         };
@@ -218,7 +219,8 @@ const Sessions = {
     d.date = g('ss-date').value || todayStr();
     d.venue = g('ss-venue').value.trim();
     d.time = g('ss-time').value.trim();
-    d.courtFee = num(g('ss-court').value);
+    if (g('ss-court')) d.courtFee = num(g('ss-court').value);   // 只有舊資料(courtFee>0)才會有這個欄位
+    d.acFee = num(g('ss-ac').value);
     d.note = g('ss-note').value.trim();
     document.querySelectorAll('#ss-use .use-row').forEach(row =>
       this.setUse(row.dataset.sid, row.querySelector('.u-n').value));
@@ -243,8 +245,12 @@ const Sessions = {
       </div>
       <label for="ss-venue">場地</label>
       <input type="text" id="ss-venue" value="${esc(d.venue)}" placeholder="例如:大同國小活動中心">
+      ${num(d.courtFee) > 0 ? `
       <label for="ss-court">場地費(元)</label>
       <input type="number" id="ss-court" inputmode="numeric" value="${num(d.courtFee)}">
+      <p class="hint" style="margin-top:-6px">舊資料。場地費已改季繳,新場次不會再收這筆,這裡只是保留這場當時的紀錄。</p>` : ''}
+      <label for="ss-ac">冷氣費(元)</label>
+      <input type="number" id="ss-ac" inputmode="numeric" value="${num(d.acFee)}">
 
       <h3>用球 <span class="hint" id="ss-usecount"></span></h3>
       <div id="ss-use"></div>
@@ -292,11 +298,10 @@ const Sessions = {
   bindForm() {
     const d = this.draft;
 
-    /* 場地費邊打邊反映在結算 */
-    document.getElementById('ss-court').addEventListener('input', () => {
-      this.readForm();
-      this.renderSettle();
-    });
+    /* 場地費(舊資料才有這個欄位)/ 冷氣費邊打邊反映在結算 */
+    const court = document.getElementById('ss-court');
+    if (court) court.addEventListener('input', () => { this.readForm(); this.renderSettle(); });
+    document.getElementById('ss-ac').addEventListener('input', () => { this.readForm(); this.renderSettle(); });
 
     const allBtn = document.getElementById('ss-all');
     if (allBtn) allBtn.addEventListener('click', () => {
@@ -558,7 +563,8 @@ const Sessions = {
       <div class="settle">
         <div class="settle-line"><span>臨打收入 ${calc.guestCount ? `(${d.guests.filter(g => g.paid).length} 人已收)` : ''}</span><span class="n in">+${money(calc.guestIncome)}</span></div>
         ${calc.guestUnpaid ? `<div class="settle-line"><span>臨打未收</span><span class="n out">${money(calc.guestUnpaid)}</span></div>` : ''}
-        <div class="settle-line"><span>場地費</span><span class="n out">-${money(calc.courtFee)}</span></div>
+        ${calc.courtFee ? `<div class="settle-line"><span>場地費(舊制)</span><span class="n out">-${money(calc.courtFee)}</span></div>` : ''}
+        <div class="settle-line"><span>冷氣費</span><span class="n out">-${money(calc.acFee)}</span></div>
         <div class="settle-line total"><span>本場公款進出</span><span class="n ${calc.net >= 0 ? 'in' : 'out'}">${calc.net >= 0 ? '+' : ''}${money(calc.net)}</span></div>
       </div>
       <p class="settle-note">出席 ${calc.head} 人。${calc.shuttles ? `<br>${useLines}<br>球材成本合計 ${money(calc.shuttleCost)}(買球時已付款,不算在上面的公款進出)。` : ''}<br>
