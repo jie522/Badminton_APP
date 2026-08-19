@@ -25,17 +25,19 @@ const Seasons = {
       .reduce((s, p) => s + num(p.amount), 0);
   },
 
-  /* 這一季的繳費總覽 */
+  /* 這一季的繳費總覽(每個人的季費可能不一樣,應收要一個一個加) */
   summary(season) {
     const members = Members.list().filter(m => m.type === 'season' && m.active !== false);
-    const fee = num(season && season.fee);
-    let paidCount = 0, received = 0;
+    let paidCount = 0, received = 0, expected = 0;
     members.forEach(m => {
+      const fee = seasonFeeOf(m, season);
       const paid = this.paidOf(season.id, m.id);
       received += paid;
-      if (paid >= fee && fee > 0) paidCount++;
+      expected += fee;
+      /* 免繳(個人季費 0)的人算「收齊了」,不然進度永遠到不了 100% */
+      if (fee <= 0 || paid >= fee) paidCount++;
     });
-    return { total: members.length, paidCount, received, expected: fee * members.length };
+    return { total: members.length, paidCount, received, expected };
   },
 
   pay(seasonId, memberId, amount, date) {
@@ -84,8 +86,10 @@ const Seasons = {
         <div><label>開始日期</label><input type="date" id="se-start" value="${esc(s ? s.start : todayStr())}"></div>
         <div><label>結束日期</label><input type="date" id="se-end" value="${esc(s ? s.end : '')}"></div>
       </div>
-      <label>每人季費(元)</label>
+      <label>預設季費(元)</label>
       <input type="number" id="se-fee" inputmode="numeric" value="${s ? num(s.fee) : 3000}">
+      <p class="hint" style="margin:-4px 0 4px">大部分人收這個金額。要單獨調某個人(學生半價、教練免繳),
+      到那位球員的資料裡填「個人季費」,不用動這裡。</p>
       <button class="btn primary block" id="se-save">儲存</button>
       ${s ? '<button class="btn danger block" id="se-del">刪除這一季</button>' : ''}
     `);
@@ -157,7 +161,7 @@ const Members = {
   /* 這位季打球員這一季還欠多少季費(排序和標記共用) */
   owes(m, season) {
     if (!season || m.type !== 'season' || m.active === false) return 0;
-    const fee = num(season.fee);
+    const fee = seasonFeeOf(m, season);
     if (fee <= 0) return 0;
     return Math.max(0, fee - Seasons.paidOf(season.id, m.id));
   },
@@ -193,11 +197,13 @@ const Members = {
 
     box.innerHTML = list.map(m => {
       const cnt = this.attendCount(m.id);
+      const fee = season ? seasonFeeOf(m, season) : 0;
       let payChip = '';
-      if (m.type === 'season' && season && num(season.fee) > 0) {
+      if (m.type === 'season' && season && hasOwnSeasonFee(m) && fee <= 0) {
+        payChip = '<span class="chip">季費免繳</span>';
+      } else if (m.type === 'season' && fee > 0) {
         const paid = Seasons.paidOf(season.id, m.id);
-        const fee = num(season.fee);
-        payChip = paid >= fee && fee > 0
+        payChip = paid >= fee
           ? '<span class="chip paid">季費已繳</span>'
           : paid > 0
             ? `<span class="chip unpaid">尚欠 ${money(fee - paid)}</span>`
@@ -211,7 +217,7 @@ const Members = {
             ${m.active === false ? '<span class="chip off">停打</span>' : ''}
             ${payChip}
           </div>
-          <div class="row-sub">${GENDER[genderOf(m)]}${m.type === 'guest' ? ` · 單場 ${money(guestFeeOf(m))}` : ''} · 出席 ${cnt} 場${m.phone ? ' · ' + esc(m.phone) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>
+          <div class="row-sub">${GENDER[genderOf(m)]}${m.type === 'guest' ? ` · 單場 ${money(guestFeeOf(m))}` : ''}${m.type === 'season' && hasOwnSeasonFee(m) ? ` · 個人季費 ${money(m.seasonFee)}` : ''} · 出席 ${cnt} 場${m.phone ? ' · ' + esc(m.phone) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>
         </div>
       </button>`;
     }).join('');
@@ -233,11 +239,12 @@ const Members = {
     } else {
       const s = Seasons.summary(season);
       const pct = s.total ? Math.round(s.paidCount / s.total * 100) : 0;
+      const custom = this.active('season').filter(m => hasOwnSeasonFee(m)).length;
       box.innerHTML = `
         <div class="season-head">
           <div>
             <div class="season-name">${esc(season.name)}</div>
-            <div class="season-range">${esc(season.start || '')} ~ ${esc(season.end || '')} · 季費 ${money(season.fee)}</div>
+            <div class="season-range">${esc(season.start || '')} ~ ${esc(season.end || '')} · 預設季費 ${money(season.fee)}${custom ? ` · ${custom} 人個別設定` : ''}</div>
           </div>
           <button class="btn small" id="season-manage">季別</button>
         </div>
@@ -257,33 +264,40 @@ const Members = {
     const season = Seasons.current();
     if (!season) return;
     const members = this.active('season').sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
-    const fee = num(season.fee);
-    if (fee <= 0) {
-      toast('這一季的季費是 0,先到「季別」設定金額');
+    /* 只要有人有金額就能收(有人設個人季費、季別預設是 0 也算數) */
+    if (!members.some(m => seasonFeeOf(m, season) > 0)) {
+      toast('這一季還沒有人有季費金額,先設定季別的預設季費');
       Seasons.openEdit(season.id);
       return;
     }
     Modal.open(`
-      <button class="modal-close" data-close>✕</button>
+      <button class="modal-close" data-close aria-label="關閉">✕</button>
       <h2>收季費 · ${esc(season.name)}</h2>
-      <p class="hint">點一下切換「已繳 / 未繳」。已繳的會自動記進公款收入,金額預設為季費 ${money(fee)}。</p>
+      <p class="hint">點一下切換「已繳 / 未繳」。已繳的會自動記進公款收入,金額用每個人自己的季費
+      (預設 ${money(season.fee)},要單獨調某個人就到他的球員資料改「個人季費」)。</p>
       <div id="collect-list" style="margin-top:12px"></div>
     `);
     const render = () => {
       const box = document.getElementById('collect-list');
       box.innerHTML = members.map(m => {
+        const fee = seasonFeeOf(m, season);
         const paid = Seasons.paidOf(season.id, m.id);
         const done = fee > 0 && paid >= fee;
+        /* 免繳的人不給按:按了會產生一筆 $0 的繳費紀錄,帳目上會多出沒意義的列 */
         return `<div class="guest-row">
-          <span class="g-name">${avatarHtml(m.name, 'sm')}${esc(m.name)}</span>
-          <span class="hint num">${paid ? money(paid) : ''}</span>
-          <button class="g-paid ${done ? 'on' : ''}" type="button" data-id="${esc(m.id)}">${done ? '✓ 已繳' : '未繳'}</button>
+          <span class="g-name">${avatarHtml(m.name, 'sm')}<span class="g-nm">${esc(m.name)}</span>
+            ${hasOwnSeasonFee(m) ? '<span class="chip">個人價</span>' : ''}</span>
+          <span class="hint num">${paid ? money(paid) + ' / ' : ''}${money(fee)}</span>
+          ${fee > 0
+            ? `<button class="g-paid ${done ? 'on' : ''}" type="button" data-id="${esc(m.id)}">${done ? '✓ 已繳' : '未繳'}</button>`
+            : '<span class="chip">免繳</span>'}
         </div>`;
       }).join('') || '<p class="hint">還沒有季打球員</p>';
       box.querySelectorAll('.g-paid').forEach(btn =>
         btn.addEventListener('click', () => {
           const id = btn.dataset.id;
-          if (Seasons.paidOf(season.id, id) >= fee && fee > 0) Seasons.unpay(season.id, id);
+          const fee = seasonFeeOf(this.byId(id), season);
+          if (fee > 0 && Seasons.paidOf(season.id, id) >= fee) Seasons.unpay(season.id, id);
           else Seasons.pay(season.id, id, fee - Seasons.paidOf(season.id, id));
           haptic();
           render();
@@ -300,8 +314,9 @@ const Members = {
   openEdit(id) {
     const m = id ? this.byId(id) : null;
     const type = m ? m.type : (this.filter === 'guest' ? 'guest' : 'season');
+    const season = Seasons.current();
     Modal.open(`
-      <button class="modal-close" data-close>✕</button>
+      <button class="modal-close" data-close aria-label="關閉">✕</button>
       <h2>${m ? '編輯球員' : '新增球員'}</h2>
       <label>姓名 / 綽號</label>
       <input type="text" id="mb-name" value="${esc(m ? m.name : '')}" placeholder="例如:阿翔">
@@ -315,6 +330,11 @@ const Members = {
         <button data-gender="M" class="${genderOf(m) === 'M' ? 'active' : ''}">男</button>
         <button data-gender="F" class="${genderOf(m) === 'F' ? 'active' : ''}">女</button>
       </div>
+      <label>個人季費(選填,只有季打會用到)</label>
+      <input type="number" id="mb-fee" inputmode="numeric" value="${m && hasOwnSeasonFee(m) ? num(m.seasonFee) : ''}"
+             placeholder="留白 = 用季別預設 ${season ? money(season.fee) : '季費'}">
+      <p class="hint" style="margin:-4px 0 4px">學生半價填 1500、教練免繳填 0,這種個別狀況填在這裡,
+      不影響其他人,也不用改季別的預設季費。留白就是跟大家一樣。</p>
       <label>電話 / LINE(選填)</label>
       <input type="text" id="mb-phone" value="${esc(m ? m.phone : '')}" placeholder="0912-345-678">
       <label>備註(選填)</label>
@@ -346,6 +366,9 @@ const Members = {
         gender: document.querySelector('#mb-gender button.active').dataset.gender,
         phone: document.getElementById('mb-phone').value.trim(),
         note: document.getElementById('mb-note').value.trim(),
+        /* 留白要存成空字串(跟預設走),不能存 0 —— 0 代表這個人免繳 */
+        seasonFee: document.getElementById('mb-fee').value.trim() === ''
+          ? '' : num(document.getElementById('mb-fee').value),
         active: activeBtn ? activeBtn.dataset.active === '1' : true,
         createdAt: m ? m.createdAt : new Date().toISOString(),
       };
@@ -386,14 +409,17 @@ const Members = {
       : [];
 
     let payBlock = '';
-    if (m.type === 'season' && season && num(season.fee) > 0) {
+    if (m.type === 'season' && season && hasOwnSeasonFee(m) && seasonFeeOf(m, season) <= 0) {
+      payBlock = `<h3>${esc(season.name)} 季費</h3>
+        <p class="hint">這一季設定為<b>免繳</b>(個人季費 0)。要改回一般金額,到「編輯球員資料」把個人季費清空。</p>`;
+    } else if (m.type === 'season' && season && seasonFeeOf(m, season) > 0) {
       const paid = Seasons.paidOf(season.id, m.id);
-      const fee = num(season.fee);
-      const done = fee > 0 && paid >= fee;
+      const fee = seasonFeeOf(m, season);
+      const done = paid >= fee;
       payBlock = `
         <h3>${esc(season.name)} 季費</h3>
         <div class="settle">
-          <div class="settle-line"><span>季費</span><span class="n">${money(fee)}</span></div>
+          <div class="settle-line"><span>季費${hasOwnSeasonFee(m) ? '(個人價)' : ''}</span><span class="n">${money(fee)}</span></div>
           <div class="settle-line"><span>已繳</span><span class="n in">${money(paid)}</span></div>
           ${done ? '' : `<div class="settle-line total"><span>尚欠</span><span class="n out">${money(fee - paid)}</span></div>`}
         </div>
@@ -452,7 +478,7 @@ const Members = {
     document.getElementById('md-edit').addEventListener('click', () => this.openEdit(m.id));
     const pay = document.getElementById('md-pay');
     if (pay) pay.addEventListener('click', () => {
-      const fee = num(season.fee);
+      const fee = seasonFeeOf(m, season);
       const paid = Seasons.paidOf(season.id, m.id);
       if (fee > 0 && paid >= fee) Seasons.unpay(season.id, m.id);
       else Seasons.pay(season.id, m.id, fee - paid);

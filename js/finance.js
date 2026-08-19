@@ -113,9 +113,9 @@ const Finance = {
   /* 這一季的季費收了幾成 */
   seasonPayHtml() {
     const season = Seasons.current();
-    if (!season || num(season.fee) <= 0) return '';
+    if (!season) return '';
     const s = Seasons.summary(season);
-    if (!s.total) return '';
+    if (!s.total || s.expected <= 0) return '';   // 應收是每個人的季費加總,不是預設季費 × 人數
     const pct = s.expected ? s.received / s.expected * 100 : 0;
     return `<div class="chart-card">
       <div class="chart-head"><span class="chart-title">${esc(season.name)} 季費收繳</span></div>

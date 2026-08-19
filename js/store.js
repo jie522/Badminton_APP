@@ -1,7 +1,8 @@
 /* 資料儲存:localStorage 包裝 + 共用小工具
  *
  * 資料表(每張都是一個陣列,存在 localStorage,啟用同步後鏡像到 Google Sheet):
- *   members  球員       { id, name, type:'season'|'guest', gender:'M'|'F', phone, note, active, createdAt }
+ *   members  球員       { id, name, type:'season'|'guest', gender:'M'|'F', phone, note, active, createdAt,
+ *                        seasonFee }   ← 個人季費;留白 = 用季別預設,填 0 = 免繳(見 seasonFeeOf)
  *   seasons  季別       { id, name, start, end, fee }
  *   payments 季費繳納   { id, seasonId, memberId, amount, date, note }
  *   sessions 打球場次   { id, date, venue, time, courtFee,
@@ -99,6 +100,24 @@ function genderOf(member) { return member && member.gender === 'F' ? 'F' : 'M'; 
 function guestFeeOf(member) {
   const c = cfg();
   return num(genderOf(member) === 'F' ? c.guestFeeF : c.guestFeeM);
+}
+
+/* 有沒有設「個人季費」——
+ * 留白(''、undefined)= 沒設,用季別預設;填 0 = 真的免繳,兩者不一樣,
+ * 所以這裡不能用 num() 判斷(num('') 和 num(0) 都是 0)。 */
+function hasOwnSeasonFee(member) {
+  const raw = member && member.seasonFee;
+  if (raw === '' || raw === undefined || raw === null) return false;
+  /* 只認得出數字才算數:Sheet 欄位對位跑掉時會讀到「季打」這種字,
+   * 那種情況要當作沒設定(回去用季別預設),不能變成免繳。 */
+  return Number.isFinite(parseFloat(raw));
+}
+
+/* 這位季打球員這一季該繳多少:
+ * 有設個人季費就用他自己的(學生半價 1500、教練免繳 0),沒設就用季別的預設季費。 */
+function seasonFeeOf(member, season) {
+  if (hasOwnSeasonFee(member)) return num(member.seasonFee);
+  return num(season && season.fee);
 }
 
 /* 舊版本存下來的資料補上新欄位(只在啟動時跑一次) */
