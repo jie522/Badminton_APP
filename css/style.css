@@ -413,10 +413,12 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 /* ============ 出席勾選 ============ */
 .pick-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .pick {
+  display: flex; align-items: center; gap: 6px;
   border: 1px solid var(--border); background: var(--bg); color: var(--text2);
-  border-radius: 999px; padding: 8px 14px; font-size: 14px; min-height: 38px;
+  border-radius: 999px; padding: 5px 14px 5px 5px; font-size: 14px; min-height: 38px;
 }
 .pick.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.pick .avatar.xs { width: 26px; height: 26px; font-size: 11px; flex-shrink: 0; }
 
 /* 臨打列 */
 .guest-row {
