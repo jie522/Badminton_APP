@@ -20,7 +20,7 @@ const Photos = {
       save: l => Seasons.saveList(l),
       caption: s => s.name || '季別',
       sortKey: s => s.start,
-      afterChange: () => Members.render(),
+      afterChange: () => Members.renderSeasonPage(),
     },
     txns: {
       label: '收支',

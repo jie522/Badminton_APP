@@ -85,6 +85,12 @@
 ## 互動慣例
 
 - 每頁右上角「＋」的行為定義在 `js/app.js` 的 `PAGES`;沒有新增動作的頁面把 `add` 設 `null`,按鈕會自動隱藏。
+- **季打(`page-season`)跟人員(`page-members`,現在只放臨打)是分開的兩個底部分頁**,不是同一頁用篩選器切換。
+  兩頁共用 `Members` 物件同一份資料操作(`list`/`save`/`openEdit`/大頭貼…),但畫面各自獨立:
+  `Members.renderSeasonPage()` 畫季打(含季別卡、季費排序)、`Members.renderGuestPage()` 畫臨打(純名字排序),
+  各自的搜尋字存在 `Members.seasonQ` / `Members.guestQ`,不要合併成一個,不然切頁會互相污染搜尋框。
+  **改到球員資料的地方(存檔、刪除、大頭貼)一律呼叫 `Members.refreshBoth()`**,不要猜這個人現在該顯示在哪一頁 ——
+  類型是可以改的(季打⇄臨打),`openEdit` 存檔後也會用 `switchPage()` 自動跳到那個人實際所在的頁面。
 - 彈窗一律用 `Modal.open(html)`,關閉鈕加 `data-close`。
 - 有需要即時反映的表單(例如場次的結算),重畫前**一定要先 `readForm()`** 把使用者打到一半的字存回 draft,不然會被洗掉。
 - 提示訊息用 `toast()`,不要用 `alert()`;破壞性操作(刪除、覆蓋)用 `await ask('…')`(`js/ui.js`),不要用瀏覽器的 `confirm()` —— 樣式在手機上很突兀。用了 `ask()` 的事件處理器記得加 `async`。

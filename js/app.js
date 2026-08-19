@@ -22,7 +22,8 @@ document.getElementById('modal-backdrop').addEventListener('click', e => {
 /* ---------- 頁籤 ---------- */
 const PAGES = {
   sessions: { title: '打球場次', add: () => Sessions.openAdd(), addLabel: '記一場球' },
-  members: { title: '球員名單', add: () => Members.openAdd(), addLabel: '新增球員' },
+  season: { title: '季打管理', add: () => Members.openAdd('season'), addLabel: '新增季打球員' },
+  members: { title: '臨打名單', add: () => Members.openAdd('guest'), addLabel: '新增臨打球友' },
   finance: { title: '公款收支', add: () => Finance.openAdd(), addLabel: '記一筆收支' },
   photos: { title: '球隊相簿', add: () => Photos.openAdd(), addLabel: '上傳照片' },
   settings: { title: '設定', add: null },
@@ -58,8 +59,6 @@ fab.addEventListener('click', () => {
 function syncFilterUI() {
   document.querySelectorAll('#session-filter button').forEach(b =>
     b.classList.toggle('active', b.dataset.range === Sessions.filter));
-  document.querySelectorAll('#member-filter button').forEach(b =>
-    b.classList.toggle('active', b.dataset.type === Members.filter));
   document.querySelectorAll('#finance-filter button').forEach(b =>
     b.classList.toggle('active', b.dataset.kind === Finance.filter));
 }
@@ -70,12 +69,6 @@ document.querySelectorAll('#session-filter button').forEach(btn =>
     syncFilterUI();
     Sessions.render();
   }));
-document.querySelectorAll('#member-filter button').forEach(btn =>
-  btn.addEventListener('click', () => {
-    Members.filter = btn.dataset.type;
-    syncFilterUI();
-    Members.render();
-  }));
 document.querySelectorAll('#finance-filter button').forEach(btn =>
   btn.addEventListener('click', () => {
     Finance.filter = btn.dataset.kind;
@@ -83,22 +76,27 @@ document.querySelectorAll('#finance-filter button').forEach(btn =>
     Finance.render();
   }));
 
-/* ---------- 人員頁搜尋 ---------- */
-const memberSearch = document.getElementById('member-search');
-const memberSearchClear = document.getElementById('member-search-clear');
-
-memberSearch.addEventListener('input', () => {
-  Members.q = memberSearch.value;
-  memberSearchClear.classList.toggle('hidden', !Members.q);
-  Members.render();
-});
-memberSearchClear.addEventListener('click', () => {
-  memberSearch.value = '';
-  Members.q = '';
-  memberSearchClear.classList.add('hidden');
-  Members.render();
-  memberSearch.focus();
-});
+/* ---------- 季打 / 人員(臨打)頁搜尋 ----------
+ * 兩個分頁各自獨立的搜尋框,用同一組綁定邏輯處理,只是欄位 id 和渲染方法不一樣。
+ */
+function bindMemberSearch(inputId, clearId, qKey, renderFn) {
+  const input = document.getElementById(inputId);
+  const clear = document.getElementById(clearId);
+  input.addEventListener('input', () => {
+    Members[qKey] = input.value;
+    clear.classList.toggle('hidden', !Members[qKey]);
+    renderFn();
+  });
+  clear.addEventListener('click', () => {
+    input.value = '';
+    Members[qKey] = '';
+    clear.classList.add('hidden');
+    renderFn();
+    input.focus();
+  });
+}
+bindMemberSearch('season-member-search', 'season-member-search-clear', 'seasonQ', () => Members.renderSeasonPage());
+bindMemberSearch('member-search', 'member-search-clear', 'guestQ', () => Members.renderGuestPage());
 
 /* ---------- 設定:外觀 ---------- */
 function loadThemeForm() {
@@ -137,7 +135,7 @@ document.getElementById('save-settings').addEventListener('click', () => {
   setCfg(patch);
   loadSettingsForm();
   Sessions.render();
-  Members.render();
+  Members.refreshBoth();
   Finance.render();
   toast('設定已儲存');
 });
@@ -192,7 +190,7 @@ syncBtn.addEventListener('click', async () => {
 
 function renderAll() {
   Sessions.render();
-  Members.render();
+  Members.refreshBoth();
   Finance.render();
   Finance.loadOpeningForm();   // 別的裝置改過起始餘額,同步回來後設定頁的欄位也要跟著換
   Photos.render();

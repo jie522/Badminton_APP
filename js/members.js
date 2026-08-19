@@ -125,7 +125,7 @@ const Seasons = {
       if (i >= 0) list[i] = rec; else list.push(rec);
       this.saveList(list);
       Modal.close();
-      Members.render();
+      Members.renderSeasonPage();
       Sessions.render();
       Finance.render();
       toast('已儲存');
@@ -136,7 +136,7 @@ const Seasons = {
       this.saveList(this.list().filter(x => x.id !== s.id));
       this.savePayments(this.payments().filter(p => p.seasonId !== s.id));
       Modal.close();
-      Members.render();
+      Members.renderSeasonPage();
       Finance.render();
       toast('已刪除');
     });
@@ -145,8 +145,8 @@ const Seasons = {
 
 const Members = {
   TYPE: { season: '季打', guest: '臨打' },
-  filter: 'season',
-  q: '',              // 人員頁搜尋框的字
+  seasonQ: '',        // 季打頁搜尋框的字
+  guestQ: '',         // 人員(臨打)頁搜尋框的字
 
   list() { return Store.load('members', []); },
   saveList(l) { Store.save('members', l); Sync.bg('members'); },
@@ -183,21 +183,55 @@ const Members = {
     return Math.max(0, fee - Seasons.paidOf(season.id, m.id));
   },
 
-  /* ---------- 畫面 ---------- */
-  render() {
-    this.renderSeasonCard();
-    const box = document.getElementById('member-list');
-    const empty = document.getElementById('member-empty');
-    const all = this.list();
-    const season = Seasons.current();
-    const q = this.q.trim().toLowerCase();
-
-    let list = this.filter === 'all' ? all : all.filter(m => m.type === this.filter);
-    if (q) list = list.filter(m =>
-      m.name.toLowerCase().includes(q) ||
+  /* ---------- 畫面 ----------
+   * 季打、臨打各自獨立一頁(不再共用一份帶篩選器的列表),兩頁共用同一顆卡片模板(rowCardHtml),
+   * 只是各自的資料來源、搜尋字、排序方式不一樣。改到球員資料的地方(存檔/刪除/大頭貼/收季費)
+   * 統一呼叫 refreshBoth(),不用猜這個人現在該顯示在哪一頁。
+   */
+  matchesQuery(m, q) {
+    return m.name.toLowerCase().includes(q) ||
       String(m.phone || '').toLowerCase().includes(q) ||
-      String(m.note || '').toLowerCase().includes(q));
+      String(m.note || '').toLowerCase().includes(q);
+  },
 
+  rowCardHtml(m, season) {
+    const cnt = this.attendCount(m.id);
+    const fee = (m.type === 'season' && season) ? seasonFeeOf(m, season) : 0;
+    let payChip = '';
+    if (m.type === 'season' && season && hasOwnSeasonFee(m) && fee <= 0) {
+      payChip = '<span class="chip">季費免繳</span>';
+    } else if (m.type === 'season' && fee > 0) {
+      const paid = Seasons.paidOf(season.id, m.id);
+      payChip = paid >= fee
+        ? '<span class="chip paid">季費已繳</span>'
+        : paid > 0
+          ? `<span class="chip unpaid">尚欠 ${money(fee - paid)}</span>`
+          : '<span class="chip unpaid">季費未繳</span>';
+    }
+    /* 已經在對的頁面了(季打頁只有季打、人員頁只有臨打),不用再標一次類型;
+     * 有沒有繳錢才是要一眼看到的重點,單獨放右邊、保留紅/綠/中性的顏色語意。 */
+    return `<button class="row-card" data-id="${esc(m.id)}">
+        ${avatarHtml(m.name, m.active === false ? 'dim' : '', m.avatarId)}
+        <div class="row-main">
+          <div class="row-title">${esc(m.name)}
+            ${m.active === false ? '<span class="chip off">停打</span>' : ''}
+          </div>
+          <div class="row-sub">${GENDER[genderOf(m)]}${m.type === 'guest' ? ` · 單場 ${money(guestFeeOf(m))}` : ''}${m.type === 'season' && hasOwnSeasonFee(m) ? ` · 個人季費 ${money(m.seasonFee)}` : ''} · 出席 ${cnt} 場${m.phone ? ' · ' + esc(m.phone) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>
+        </div>
+        ${payChip ? `<div class="row-right">${payChip}</div>` : ''}
+      </button>`;
+  },
+
+  /* ---------- 季打頁 ---------- */
+  renderSeasonPage() {
+    this.renderSeasonCard();
+    const box = document.getElementById('season-member-list');
+    const empty = document.getElementById('season-member-empty');
+    const all = this.list().filter(m => m.type === 'season');
+    const season = Seasons.current();
+    const q = this.seasonQ.trim().toLowerCase();
+
+    let list = q ? all.filter(m => this.matchesQuery(m, q)) : all;
     /* 還沒繳季費的排最前面(欠越多越前面),其餘照名字排 */
     list = [...list].sort((a, b) => {
       const d = this.owes(b, season) - this.owes(a, season);
@@ -207,43 +241,37 @@ const Members = {
 
     empty.classList.toggle('hidden', list.length > 0);
     empty.querySelector('p').innerHTML = q
-      ? `找不到符合「${esc(this.q.trim())}」的球員`
-      : all.length
-        ? '這個分類還沒有球員'
-        : '還沒有球員<br>按右下角「＋」新增';
+      ? `找不到符合「${esc(this.seasonQ.trim())}」的球員`
+      : '還沒有季打球員<br>按右下角「＋」新增';
 
-    box.innerHTML = list.map(m => {
-      const cnt = this.attendCount(m.id);
-      const fee = season ? seasonFeeOf(m, season) : 0;
-      let payChip = '';
-      if (m.type === 'season' && season && hasOwnSeasonFee(m) && fee <= 0) {
-        payChip = '<span class="chip">季費免繳</span>';
-      } else if (m.type === 'season' && fee > 0) {
-        const paid = Seasons.paidOf(season.id, m.id);
-        payChip = paid >= fee
-          ? '<span class="chip paid">季費已繳</span>'
-          : paid > 0
-            ? `<span class="chip unpaid">尚欠 ${money(fee - paid)}</span>`
-            : '<span class="chip unpaid">季費未繳</span>';
-      }
-      /* 類型(季打/臨打)、停打都是「身分」,用中性灰不搶色;
-       * 有沒有繳錢才是要一眼看到的重點,單獨放右邊、保留紅/綠/中性的顏色語意,
-       * 兩種資訊分開才不會擠成一排同色的藥丸看不出誰是誰。 */
-      return `<button class="row-card" data-id="${esc(m.id)}">
-        ${avatarHtml(m.name, m.active === false ? 'dim' : '', m.avatarId)}
-        <div class="row-main">
-          <div class="row-title">${esc(m.name)}
-            <span class="chip off">${this.TYPE[m.type]}</span>
-            ${m.active === false ? '<span class="chip off">停打</span>' : ''}
-          </div>
-          <div class="row-sub">${GENDER[genderOf(m)]}${m.type === 'guest' ? ` · 單場 ${money(guestFeeOf(m))}` : ''}${m.type === 'season' && hasOwnSeasonFee(m) ? ` · 個人季費 ${money(m.seasonFee)}` : ''} · 出席 ${cnt} 場${m.phone ? ' · ' + esc(m.phone) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>
-        </div>
-        ${payChip ? `<div class="row-right">${payChip}</div>` : ''}
-      </button>`;
-    }).join('');
-
+    box.innerHTML = list.map(m => this.rowCardHtml(m, season)).join('');
     box.querySelectorAll('.row-card').forEach(el =>
       el.addEventListener('click', () => this.openDetail(el.dataset.id)));
+  },
+
+  /* ---------- 人員頁(臨打) ---------- */
+  renderGuestPage() {
+    const box = document.getElementById('member-list');
+    const empty = document.getElementById('member-empty');
+    const all = this.list().filter(m => m.type === 'guest');
+    const q = this.guestQ.trim().toLowerCase();
+
+    let list = q ? all.filter(m => this.matchesQuery(m, q)) : all;
+    list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+
+    empty.classList.toggle('hidden', list.length > 0);
+    empty.querySelector('p').innerHTML = q
+      ? `找不到符合「${esc(this.guestQ.trim())}」的球友`
+      : '還沒有臨打球友<br>按右下角「＋」新增';
+
+    box.innerHTML = list.map(m => this.rowCardHtml(m, null)).join('');
+    box.querySelectorAll('.row-card').forEach(el =>
+      el.addEventListener('click', () => this.openDetail(el.dataset.id)));
+  },
+
+  refreshBoth() {
+    this.renderSeasonPage();
+    this.renderGuestPage();
   },
 
   renderSeasonCard() {
@@ -321,7 +349,7 @@ const Members = {
           else Seasons.pay(season.id, id, fee - Seasons.paidOf(season.id, id));
           haptic();
           render();
-          this.render();
+          this.renderSeasonPage();
           Finance.render();
         }));
     };
@@ -329,11 +357,11 @@ const Members = {
   },
 
   /* ---------- 新增 / 編輯 ---------- */
-  openAdd() { this.openEdit(null); },
+  openAdd(type) { this.openEdit(null, type); },
 
-  openEdit(id) {
+  openEdit(id, defaultType) {
     const m = id ? this.byId(id) : null;
-    const type = m ? m.type : (this.filter === 'guest' ? 'guest' : 'season');
+    const type = m ? m.type : (defaultType === 'guest' ? 'guest' : 'season');
     const season = Seasons.current();
     Modal.open(`
       <button class="modal-close" data-close aria-label="關閉">✕</button>
@@ -416,9 +444,10 @@ const Members = {
       if (i >= 0) list[i] = rec; else list.push(rec);
       this.saveList(list);
       Modal.close();
-      this.filter = rec.type;
-      syncFilterUI();
-      this.render();
+      this.refreshBoth();
+      /* 類型可能被改了(季打⇄臨打),切到那個人現在真正所在的頁面,
+       * 不然使用者會困惑剛存的人怎麼不在眼前這個列表上。 */
+      switchPage(rec.type === 'guest' ? 'members' : 'season');
       toast('已儲存');
     });
 
@@ -429,7 +458,7 @@ const Members = {
       this.saveList(this.list().filter(x => x.id !== m.id));
       Seasons.savePayments(Seasons.payments().filter(p => p.memberId !== m.id));
       Modal.close();
-      this.render();
+      this.refreshBoth();
       Finance.render();
       toast('已刪除');
     });
@@ -469,7 +498,7 @@ const Members = {
       rec.avatarId = newId;
       this.saveList(list);
       if (oldId) Sync.deletePhoto(oldId);
-      this.render();
+      this.refreshBoth();
       toast('大頭貼已更新');
     } catch (e) {
       toast('上傳失敗,請再試一次');
@@ -484,7 +513,7 @@ const Members = {
     rec.avatarId = '';
     this.saveList(list);
     Sync.deletePhoto(oldId);
-    this.render();
+    this.refreshBoth();
     toast('已移除大頭貼');
   },
 
@@ -575,7 +604,7 @@ const Members = {
       if (fee > 0 && paid >= fee) Seasons.unpay(season.id, m.id);
       else Seasons.pay(season.id, m.id, fee - paid);
       Modal.close();
-      this.render();
+      this.renderSeasonPage();
       Finance.render();
       toast('已更新季費狀態');
     });

@@ -598,7 +598,7 @@ const Sessions = {
     this.saveList(list);
     if (redraw) {
       this.render();
-      Members.render();
+      Members.refreshBoth();
       Finance.render();
       Photos.render();
     }

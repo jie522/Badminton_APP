@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="css/style.css?v=20260819i">
+<link rel="stylesheet" href="css/style.css?v=20260819j">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -57,24 +57,34 @@
     </div>
   </section>
 
-  <!-- ============ 人員 ============ -->
-  <section id="page-members" class="page">
+  <!-- ============ 季打 ============ -->
+  <section id="page-season" class="page">
     <div id="season-card" class="card season-card"></div>
+    <div class="search-box">
+      <span class="s-icon" data-icon="search" data-size="18"></span>
+      <input type="search" id="season-member-search" placeholder="搜尋名字、電話、備註" autocomplete="off">
+      <button id="season-member-search-clear" class="s-clear hidden" type="button"
+              data-icon="close" data-size="16" aria-label="清除搜尋"></button>
+    </div>
+    <div id="season-member-list" class="card-list"></div>
+    <div id="season-member-empty" class="empty hidden">
+      <div class="empty-icon" data-icon="users" data-size="52"></div>
+      <p>還沒有季打球員<br>按右下角「＋」新增</p>
+    </div>
+  </section>
+
+  <!-- ============ 人員(臨打) ============ -->
+  <section id="page-members" class="page">
     <div class="search-box">
       <span class="s-icon" data-icon="search" data-size="18"></span>
       <input type="search" id="member-search" placeholder="搜尋名字、電話、備註" autocomplete="off">
       <button id="member-search-clear" class="s-clear hidden" type="button"
               data-icon="close" data-size="16" aria-label="清除搜尋"></button>
     </div>
-    <div class="segmented" id="member-filter">
-      <button data-type="season" class="active">季打</button>
-      <button data-type="guest">臨打</button>
-      <button data-type="all">全部</button>
-    </div>
     <div id="member-list" class="card-list"></div>
     <div id="member-empty" class="empty hidden">
-      <div class="empty-icon" data-icon="users" data-size="52"></div>
-      <p>還沒有球員<br>按右下角「＋」新增</p>
+      <div class="empty-icon" data-icon="guest" data-size="52"></div>
+      <p>還沒有臨打球友<br>按右下角「＋」新增</p>
     </div>
   </section>
 
@@ -193,7 +203,8 @@
 
 <nav class="tab-bar">
   <button class="tab active" data-page="sessions"><span class="tab-icon" data-icon="shuttle" data-size="23"></span>場次</button>
-  <button class="tab" data-page="members"><span class="tab-icon" data-icon="users" data-size="23"></span>人員</button>
+  <button class="tab" data-page="season"><span class="tab-icon" data-icon="users" data-size="23"></span>季打</button>
+  <button class="tab" data-page="members"><span class="tab-icon" data-icon="guest" data-size="23"></span>人員</button>
   <button class="tab" data-page="finance"><span class="tab-icon" data-icon="wallet" data-size="23"></span>收支</button>
   <button class="tab" data-page="photos"><span class="tab-icon" data-icon="camera" data-size="23"></span>相簿</button>
   <button class="tab" data-page="settings"><span class="tab-icon" data-icon="sliders" data-size="23"></span>設定</button>
@@ -207,14 +218,14 @@
 <!-- 照片放大 -->
 <div id="lightbox" class="lightbox hidden"></div>
 
-<script src="js/store.js?v=20260819i"></script>
-<script src="js/ui.js?v=20260819i"></script>
-<script src="js/sync.js?v=20260819i"></script>
-<script src="js/shuttles.js?v=20260819i"></script>
-<script src="js/members.js?v=20260819i"></script>
-<script src="js/sessions.js?v=20260819i"></script>
-<script src="js/finance.js?v=20260819i"></script>
-<script src="js/photos.js?v=20260819i"></script>
-<script src="js/app.js?v=20260819i"></script>
+<script src="js/store.js?v=20260819j"></script>
+<script src="js/ui.js?v=20260819j"></script>
+<script src="js/sync.js?v=20260819j"></script>
+<script src="js/shuttles.js?v=20260819j"></script>
+<script src="js/members.js?v=20260819j"></script>
+<script src="js/sessions.js?v=20260819j"></script>
+<script src="js/finance.js?v=20260819j"></script>
+<script src="js/photos.js?v=20260819j"></script>
+<script src="js/app.js?v=20260819j"></script>
 </body>
 </html>
