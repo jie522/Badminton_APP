@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 10;
+var VERSION = 11;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -43,8 +43,8 @@ var TABLES = {
   },
   seasons: {
     tab: '季別',
-    fields: ['id', 'name', 'start', 'end', 'fee', 'photos'],
-    headers: ['id', '季別名稱', '開始日期', '結束日期', '季費', '照片'],
+    fields: ['id', 'name', 'start', 'end', 'fee', 'photos', 'skips'],
+    headers: ['id', '季別名稱', '開始日期', '結束日期', '季費', '照片', '避開的週五(json)'],
   },
   payments: {
     tab: '季費繳納',
@@ -94,7 +94,7 @@ var TABLES = {
   },
 };
 
-var JSON_FIELDS = ['attendees', 'guests', 'photos', 'shuttleUse'];
+var JSON_FIELDS = ['attendees', 'guests', 'photos', 'shuttleUse', 'skips'];
 var NUM_FIELDS = ['fee', 'amount', 'qty', 'courtFee', 'acFee', 'shuttles', 'balls', 'price', 'tubes', 'openStock'];
 var BOOL_FIELDS = ['active', 'current'];
 /* 值是空白時要當成 true 的布林欄位(active 沒填代表還在打;current 沒填代表不是目前使用的球種) */

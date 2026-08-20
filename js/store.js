@@ -4,7 +4,9 @@
  *   members  球員       { id, name, type:'season'|'guest', gender:'M'|'F', phone, note, active, createdAt,
  *                        seasonFee,   ← 個人季費;留白 = 用季別預設,填 0 = 免繳(見 seasonFeeOf)
  *                        avatarId }   ← 大頭貼,Google Drive 檔案 id,沒上傳就退回名字色塊(見 avatarHtml)
- *   seasons  季別       { id, name, start, end, fee, photos:[{id, caption}] }
+ *   seasons  季別       { id, name, start, end, fee, photos:[{id, caption}],
+ *                        skips:[{date, note}] }   ← 這一季裡手動標記「避開」的週五(國定假日、下雨…),
+ *                                                    date 是那個週五,note 選填的原因,見 Seasons.openCalendar()
  *   payments 季費繳納   { id, seasonId, memberId, amount, date, note }
  *   sessions 打球場次   { id, date, venue, time,
  *                        courtFee,   ← 舊制:場地費逐場收。已改季繳(記一筆手動帳,分類選「包場 / 押金」),

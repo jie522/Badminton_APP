@@ -138,6 +138,7 @@ const Seasons = {
       <p class="hint" style="margin:-4px 0 4px">大部分人收這個金額。要單獨調某個人(學生半價、教練免繳),
       到那位球員的資料裡填「個人季費」,不用動這裡。</p>
       ${s ? `<button class="btn block" id="se-closing" type="button">${icon('wallet', '', 16)} 查看季結算</button>` : ''}
+      ${s ? `<button class="btn block" id="se-calendar" type="button">${icon('shuttle', '', 16)} 查看本季行事曆(週五)</button>` : ''}
       ${s ? `
         <h3>照片 <span class="hint">(${(s.photos || []).length} 張)</span></h3>
         <div class="photo-grid" id="se-photos">
@@ -149,6 +150,7 @@ const Seasons = {
     `);
     if (s) {
       document.getElementById('se-closing').addEventListener('click', () => this.openClosing(s.id));
+      document.getElementById('se-calendar').addEventListener('click', () => this.openCalendar(s.id));
       document.getElementById('se-upload').addEventListener('click', () =>
         Photos.pickAndUpload('seasons', s.id, () => this.openEdit(s.id)));
       document.querySelectorAll('#se-photos img').forEach(img =>
@@ -164,6 +166,7 @@ const Seasons = {
         end: document.getElementById('se-end').value,
         fee: num(document.getElementById('se-fee').value),
         photos: s ? (s.photos || []) : [],   // 存檔是整包重建物件,照片要顯式帶過去才不會不見
+        skips: s ? (s.skips || []) : [],     // 同樣要顯式帶過去,不然行事曆標記的避開週五會不見
       };
       const list = this.list();
       const i = list.findIndex(x => x.id === rec.id);
@@ -226,6 +229,93 @@ const Seasons = {
         <div class="settle-line total"><span>羽球庫存總價值</span><span class="n">${money(stockValue)}</span></div>
       </div>
     `);
+  },
+
+  /* ---------- 行事曆(這一季所有週五) ----------
+   * 球隊固定週五打球,列出這一季區間內每個週五:已經有場次紀錄的自動標「已打」,
+   * 其餘的可以手動標「避開」(國定假日、下雨、場地公休…),原因自己填,
+   * 不內建台灣國定假日表(逐年要維護、還有補假問題,靜態網頁不好保證跟得上)。
+   */
+  openCalendar(id) {
+    const s = this.byId(id);
+    if (!s) return;
+    if (!s.start || !s.end) { toast('這一季還沒設定開始/結束日期'); return; }
+
+    const fridays = [];
+    const d = new Date(s.start + 'T00:00:00');
+    d.setDate(d.getDate() + (5 - d.getDay() + 7) % 7);   // 這一季第一個週五
+    const end = new Date(s.end + 'T00:00:00');
+    while (d <= end) { fridays.push(todayStr(d)); d.setDate(d.getDate() + 7); }
+
+    const sessionDates = new Set(Sessions.list().map(x => x.date));
+
+    Modal.open(`
+      <button class="modal-close" data-close>✕</button>
+      <h2>${esc(s.name)} 行事曆</h2>
+      <p class="hint">${esc(s.start)} ~ ${esc(s.end)} 期間每個週五。點一下未安排的週五可以標記「避開」
+      (國定假日、下雨、場地公休…原因自己填),已經記過場次的會自動標「已打」,不能點。</p>
+      <div class="card-list" id="cal-list"></div>
+    `);
+
+    const render = () => {
+      const skips = s.skips || [];
+      const box = document.getElementById('cal-list');
+      box.innerHTML = fridays.map(date => {
+        const played = sessionDates.has(date);
+        const skip = skips.find(k => k.date === date);
+        const dp = dateParts(date);
+        const right = played
+          ? '<span class="chip paid">已打</span>'
+          : skip
+            ? `<span class="chip off">避開${skip.note ? '・' + esc(skip.note) : ''}</span>`
+            : '<span class="chip unpaid">未安排</span>';
+        return `<button class="row-card" data-date="${esc(date)}" ${played ? 'disabled' : ''}>
+          <div class="date-tile"><b>${esc(dp.md)}</b><span>${esc(dp.wd)}</span></div>
+          <div class="row-main"><div class="row-title" style="font-size:15px">${esc(date)}</div></div>
+          <div class="row-right">${right}</div>
+        </button>`;
+      }).join('');
+      box.querySelectorAll('.row-card:not([disabled])').forEach(el =>
+        el.addEventListener('click', () => {
+          const date = el.dataset.date;
+          if ((s.skips || []).some(k => k.date === date)) {
+            s.skips = s.skips.filter(k => k.date !== date);
+            this.saveList(this.list().map(x => x.id === s.id ? s : x));
+            haptic();
+            render();
+            toast('已取消避開標記');
+          } else {
+            this.openSkipNote(s.id, date);
+          }
+        }));
+    };
+    render();
+  },
+
+  /* 標記某個週五避開,填個原因(選填),存檔後回到行事曆 */
+  openSkipNote(seasonId, date) {
+    const s = this.byId(seasonId);
+    if (!s) return;
+    const dp = dateParts(date);
+    Modal.open(`
+      <button class="modal-close" data-close>✕</button>
+      <h2>標記避開 · ${esc(dp.md)}(${esc(dp.wd)})</h2>
+      <label>原因(選填)</label>
+      <input type="text" id="cs-note" placeholder="例如:國定假日、下雨、場地公休">
+      <button class="btn primary block" id="cs-save">標記這天避開</button>
+    `);
+    document.getElementById('cs-save').addEventListener('click', () => {
+      const note = document.getElementById('cs-note').value.trim();
+      const list = this.list();
+      const rec = list.find(x => x.id === seasonId);
+      if (!rec) return;
+      if (!rec.skips) rec.skips = [];
+      if (!rec.skips.some(k => k.date === date)) rec.skips.push({ date, note });
+      this.saveList(list);
+      haptic();
+      toast('已標記避開');
+      this.openCalendar(seasonId);
+    });
   },
 };
 
