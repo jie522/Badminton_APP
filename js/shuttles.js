@@ -108,7 +108,12 @@ const Shuttles = {
 
     box.innerHTML = l.map(s => {
       const st = stockOf(s.id);
+      const thumb = s.photoId
+        ? `<img class="date-tile shuttle-thumb" src="${esc(Sync.photoUrl(s.photoId, 120))}" alt="" loading="lazy"
+             onerror="Shuttles.thumbFallback(this)">`
+        : `<div class="date-tile icon-only">${icon('shuttle', '', 22)}</div>`;
       return `<button class="row-card ${cur && s.id === cur.id ? 'in-left' : ''}" data-id="${esc(s.id)}">
+        ${thumb}
         <div class="row-main">
           <div class="row-title" style="font-size:15px">${esc(s.name)}
             ${cur && s.id === cur.id ? '<span class="chip">目前使用</span>' : ''}
@@ -138,6 +143,22 @@ const Shuttles = {
       el.addEventListener('click', () => this.openEdit(el.dataset.id)));
   },
 
+  /* 列表縮圖 <img onerror> 讀不到照片時呼叫這個,換回球拍圖示方塊 */
+  thumbFallback(img) {
+    const div = document.createElement('div');
+    div.className = 'date-tile icon-only';
+    div.innerHTML = icon('shuttle', '', 22);
+    img.replaceWith(div);
+  },
+
+  /* 編輯彈窗裡的大預覽圖讀不到時同樣退回圖示 */
+  previewFallback(img) {
+    const div = document.createElement('div');
+    div.className = 'shuttle-photo-preview icon-only';
+    div.innerHTML = icon('shuttle', '', 28);
+    img.replaceWith(div);
+  },
+
   openAdd() { this.openEdit(null); },
 
   openEdit(id) {
@@ -146,6 +167,17 @@ const Shuttles = {
     Modal.open(`
       <button class="modal-close" data-close>✕</button>
       <h2>${s ? '編輯球種' : '新增球種'}</h2>
+      ${s ? `
+      <div class="shuttle-photo-row">
+        ${s.photoId
+          ? `<img class="shuttle-photo-preview" src="${esc(Sync.photoUrl(s.photoId, 200))}" alt=""
+               onerror="Shuttles.previewFallback(this)">`
+          : `<div class="shuttle-photo-preview icon-only">${icon('shuttle', '', 28)}</div>`}
+        <div>
+          <button type="button" class="btn small" id="sh-photo-btn">${s.photoId ? '換照片' : '上傳照片'}</button>
+          ${s.photoId ? '<button type="button" class="link-btn" id="sh-photo-remove" style="display:block">移除照片</button>' : ''}
+        </div>
+      </div>` : ''}
       <label>球種名稱</label>
       <input type="text" id="sh-name" value="${esc(s ? s.name : '')}" placeholder="例如:YONEX AS-9">
       <div class="field-row">
@@ -163,6 +195,17 @@ const Shuttles = {
       <button class="btn primary block" id="sh-save">儲存</button>
       ${s ? '<button class="btn danger block" id="sh-del">刪除這個球種</button>' : ''}
     `);
+
+    if (s) {
+      document.getElementById('sh-photo-btn').addEventListener('click', () =>
+        this.pickPhoto(s.id, () => this.openEdit(s.id)));
+      const rm = document.getElementById('sh-photo-remove');
+      if (rm) rm.addEventListener('click', async () => {
+        if (!await ask('移除這張照片?')) return;
+        this.removePhoto(s.id);
+        this.openEdit(s.id);
+      });
+    }
 
     const balls = document.getElementById('sh-balls');
     const price = document.getElementById('sh-price');
@@ -191,6 +234,7 @@ const Shuttles = {
         balls: num(balls.value),
         price: num(price.value),
         current: document.querySelector('#sh-current button.active').dataset.cur === '1',
+        photoId: s ? (s.photoId || '') : '',   // 存檔是整包重建物件,照片要顯式帶過去才不會不見
       };
       const l = this.list();
       const i = l.findIndex(x => x.id === rec.id);
@@ -214,6 +258,58 @@ const Shuttles = {
       Finance.render();
       toast('已刪除');
     });
+  },
+
+  /* ---------- 球種照片 ----------
+   * 跟球員大頭貼一樣只存一張(不是相簿陣列),換照片直接覆蓋、把舊檔案丟到 Drive 垃圾桶。
+   */
+  pickPhoto(id, onDone) {
+    if (!Sync.enabled()) { toast('照片存在 Google Drive,請先到「設定」啟用同步'); return; }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.hidden = true;
+    document.body.appendChild(input);
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      input.remove();
+      if (file) await this.uploadPhoto(id, file);
+      if (onDone) onDone();
+    });
+    input.click();
+  },
+
+  async uploadPhoto(id, file) {
+    const s = this.byId(id);
+    if (!s) return;
+    const oldId = s.photoId;
+    try {
+      const img = await compressImage(file, 640, 0.85);
+      const newId = await Sync.uploadPhoto({
+        name: `shuttle_${id}.jpg`, mime: img.mime, b64: img.b64, sessionDate: 'shuttle',
+      });
+      const list = this.list();
+      const rec = list.find(x => x.id === id);
+      rec.photoId = newId;
+      this.saveList(list);
+      if (oldId) Sync.deletePhoto(oldId);
+      this.render();
+      toast('照片已更新');
+    } catch (e) {
+      toast('上傳失敗,請再試一次');
+    }
+  },
+
+  removePhoto(id) {
+    const list = this.list();
+    const rec = list.find(x => x.id === id);
+    if (!rec || !rec.photoId) return;
+    const oldId = rec.photoId;
+    rec.photoId = '';
+    this.saveList(list);
+    Sync.deletePhoto(oldId);
+    this.render();
+    toast('已移除照片');
   },
 };
 

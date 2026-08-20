@@ -84,7 +84,7 @@ const Finance = {
       rows.push({
         date: p.date, kind: 'in', cat: '季費', amount: num(p.amount),
         note: `${Members.name(p.memberId)}${season ? ' · ' + season.name : ''}`,
-        src: 'payment', srcId: p.memberId,
+        src: 'payment', srcId: p.id,
       });
     });
 
@@ -272,7 +272,7 @@ const Finance = {
         if (r.cat === this.OPENING_CAT) { switchPage('settings'); this.loadOpeningForm(); document.getElementById('ob-amount').focus(); }
         else if (r.src === 'txn') this.openEdit(r.srcId);
         else if (r.src === 'session') Sessions.openEdit(r.srcId);
-        else if (r.src === 'payment') Members.openDetail(r.srcId);
+        else if (r.src === 'payment') Seasons.openEditPayment(r.srcId);
       }));
   },
 

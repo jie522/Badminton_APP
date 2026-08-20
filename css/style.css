@@ -275,7 +275,9 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 }
 .date-tile span { display: block; font-size: 10px; font-weight: 600; opacity: .75; margin-top: 1px; }
 /* 有上傳照片時,縮圖取代日期方塊,同樣大小、同樣圓角,但填滿照片不留白邊 */
-.date-tile.session-thumb { height: 52px; padding: 0; object-fit: cover; display: block; background: var(--bg); }
+.date-tile.session-thumb, .date-tile.shuttle-thumb { height: 52px; padding: 0; object-fit: cover; display: block; background: var(--bg); }
+/* 沒有縮圖可放時(球種列表),同樣大小的方塊改放圖示置中 */
+.date-tile.icon-only { display: flex; align-items: center; justify-content: center; padding: 0; height: 52px; }
 
 .row-main { min-width: 0; flex: 1; }
 .row-title { font-size: 15.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -297,6 +299,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 }
 .avatar.sm { width: 30px; height: 30px; font-size: 13px; }
 .avatar.lg { width: 56px; height: 56px; font-size: 22px; }
+.avatar.xl { width: 84px; height: 84px; font-size: 30px; }
 .avatar.dim { opacity: .45; }
 
 /* 編輯球員資料裡可以點的大頭貼:圓形按鈕 + 右下角相機小徽章 */
@@ -308,6 +311,14 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   display: flex; align-items: center; justify-content: center;
   border: 2px solid var(--card);
 }
+
+/* 球種編輯彈窗裡的照片預覽(方形,不是圓形頭像) */
+.shuttle-photo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.shuttle-photo-preview {
+  width: 64px; height: 64px; border-radius: var(--radius-sm); flex-shrink: 0;
+  object-fit: cover; background: var(--accent-soft); color: var(--accent);
+}
+.shuttle-photo-preview.icon-only { display: flex; align-items: center; justify-content: center; }
 
 .chip {
   font-size: 10.5px; padding: 2px 7px; border-radius: 999px; line-height: 1.6;
@@ -419,6 +430,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 }
 .pick.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .pick .avatar.xs { width: 26px; height: 26px; font-size: 11px; flex-shrink: 0; }
+.pick:disabled, .inline-add input:disabled, .inline-add .btn:disabled { opacity: .4; }
 
 /* 臨打列 */
 .guest-row {

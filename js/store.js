@@ -13,7 +13,9 @@
  *                        shuttleUse:[{sid, n}],   ← 這場哪一種球用了幾顆(sid 空字串 = 未指定球種)
  *                        attendees:[memberId], guests:[{mid, fee, paid}],
  *                        note, photos:[{id, caption}], createdAt }
- *   shuttles 羽球品項   { id, name, balls, price, current }   單顆成本 = price / balls
+ *   shuttles 羽球品項   { id, name, balls, price, current,
+ *                        photoId }   ← 這種球的參考照片(球盒/包裝),單張,沒上傳就顯示球拍圖示
+ *                      單顆成本 = price / balls
  *   txns     手動帳目   { id, date, kind:'in'|'out', cat, amount, qty, shuttleId, tubes, note,
  *                        photos:[{id, caption}] }
  *

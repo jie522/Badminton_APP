@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 8;
+var VERSION = 9;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -75,8 +75,8 @@ var TABLES = {
   },
   shuttles: {
     tab: '羽球品項',
-    fields: ['id', 'name', 'balls', 'price', 'current'],
-    headers: ['id', '球種名稱', '一筒幾顆', '一筒價格', '目前使用'],
+    fields: ['id', 'name', 'balls', 'price', 'current', 'photoId'],
+    headers: ['id', '球種名稱', '一筒幾顆', '一筒價格', '目前使用', '照片id'],
     extraHeaders: ['單顆成本'],
     extras: function (o) {
       var balls = Number(o.balls) || 0;
@@ -101,7 +101,7 @@ var BOOL_FIELDS = ['active', 'current'];
 var BOOL_DEFAULT_TRUE = ['active'];
 var DATE_FIELDS = ['date', 'start', 'end'];
 /* 這些欄位一定要當文字存,不然 Google 會把 id 或日期自動轉型 */
-var TEXT_FIELDS = ['id', 'seasonId', 'memberId', 'shuttleId', 'date', 'start', 'end', 'time', 'phone', 'createdAt', 'seasonFee', 'avatarId'];
+var TEXT_FIELDS = ['id', 'seasonId', 'memberId', 'shuttleId', 'date', 'start', 'end', 'time', 'phone', 'createdAt', 'seasonFee', 'avatarId', 'photoId'];
 
 /* ---------- 入口 ---------- */
 function doPost(e) {

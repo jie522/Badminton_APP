@@ -54,6 +54,49 @@ const Seasons = {
     this.savePayments(this.payments().filter(p => !(p.seasonId === seasonId && p.memberId === memberId)));
   },
 
+  /* ---------- 編輯單筆季費繳納紀錄(改日期 / 金額) ----------
+   * 從「收支」頁的季費列點進來,不走收季費彈窗那個「已繳/未繳」切換,
+   * 因為那邊一次只處理「有沒有繳」,補登日期或改金額要對到單一筆紀錄。
+   */
+  openEditPayment(id) {
+    const p = this.payments().find(x => x.id === id);
+    if (!p) { toast('找不到這筆繳費紀錄'); return; }
+    const m = Members.byId(p.memberId);
+    const season = this.byId(p.seasonId);
+    Modal.open(`
+      <button class="modal-close" data-close>✕</button>
+      <h2>編輯季費繳納</h2>
+      <p class="hint">${esc(m ? m.name : '(已刪除球員)')}${season ? ' · ' + esc(season.name) : ''}</p>
+      <div class="field-row">
+        <div><label>日期</label><input type="date" id="sp-date" value="${esc(p.date)}"></div>
+        <div><label>金額(元)</label><input type="number" id="sp-amount" inputmode="numeric" value="${num(p.amount)}"></div>
+      </div>
+      <button class="btn primary block" id="sp-save">儲存</button>
+      <button class="btn danger block" id="sp-del">刪除這筆</button>
+    `);
+    document.getElementById('sp-save').addEventListener('click', () => {
+      const amt = num(document.getElementById('sp-amount').value);
+      if (amt <= 0) { toast('金額要大於 0,免繳的人不該有繳費紀錄'); return; }
+      const list = this.payments();
+      const i = list.findIndex(x => x.id === id);
+      if (i < 0) return;
+      list[i] = { ...list[i], date: document.getElementById('sp-date').value || todayStr(), amount: amt };
+      this.savePayments(list);
+      Modal.close();
+      Members.renderSeasonPage();
+      Finance.render();
+      toast('已儲存');
+    });
+    document.getElementById('sp-del').addEventListener('click', async () => {
+      if (!await ask('確定刪除這筆季費繳納紀錄?')) return;
+      this.savePayments(this.payments().filter(x => x.id !== id));
+      Modal.close();
+      Members.renderSeasonPage();
+      Finance.render();
+      toast('已刪除');
+    });
+  },
+
   /* ---------- 季別管理彈窗 ---------- */
   openManage() {
     const list = [...this.list()].sort((a, b) => String(b.start).localeCompare(String(a.start)));
@@ -368,7 +411,7 @@ const Members = {
       <h2>${m ? '編輯球員' : '新增球員'}</h2>
       ${m ? `
         <button type="button" class="avatar-pick" id="mb-avatar-btn" aria-label="更換大頭貼">
-          ${avatarHtml(m.name, 'lg', m.avatarId)}
+          ${avatarHtml(m.name, 'xl', m.avatarId)}
           <span class="avatar-pick-badge">${icon('camera', '', 14)}</span>
         </button>
         ${m.avatarId ? '<button type="button" class="link-btn" id="mb-avatar-remove" style="display:block;margin:2px auto 4px">移除大頭貼</button>' : ''}

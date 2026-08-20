@@ -10,6 +10,7 @@ const Sessions = {
   isEdit: false,
   guestGender: 'M',   // 臨打報到時的男/女切換,加入一位後保持不變(一群女生一起來時不用每次重切)
   unpaidOpen: false,  // 未收款橫條有沒有展開
+  MAX_HEAD: 8,        // 每場出席上限(季打 + 臨打合計),場地一次只夠這麼多人
 
   list() { return Store.load('sessions', []); },
   saveList(l) { Store.save('sessions', l); Sync.bg('sessions'); },
@@ -280,6 +281,7 @@ const Sessions = {
 
       <div class="form-section">
         <h3>季打出席 <span class="hint" id="ss-pickcount"></span></h3>
+        <p class="hint" id="ss-cap-tip"></p>
         <div class="pick-grid" id="ss-picks"></div>
         ${hasSeason ? '<button class="link-btn" id="ss-all" type="button"></button>' : ''}
 
@@ -334,7 +336,12 @@ const Sessions = {
     const allBtn = document.getElementById('ss-all');
     if (allBtn) allBtn.addEventListener('click', () => {
       const members = this.seasonMembers();
-      d.attendees = d.attendees.length === members.length ? [] : members.map(m => m.id);
+      const turningOn = d.attendees.length !== members.length;
+      if (turningOn && members.length + d.guests.length > this.MAX_HEAD) {
+        toast(`全部出席會超過每場 ${this.MAX_HEAD} 位上限,請個別勾選`);
+        return;
+      }
+      d.attendees = turningOn ? members.map(m => m.id) : [];
       haptic();
       this.renderPicks();
       this.renderSettle();
@@ -392,6 +399,7 @@ const Sessions = {
     box.querySelectorAll('.pick').forEach(btn =>
       btn.addEventListener('click', () => this.togglePick(btn)));
     this.syncPickMeta();
+    this.syncCap();
   },
 
   /* 勾出席只改這顆按鈕的樣式 + 更新人數和結算,不重畫整張表單 */
@@ -399,11 +407,16 @@ const Sessions = {
     const d = this.draft;
     const id = btn.dataset.id;
     const i = d.attendees.indexOf(id);
-    if (i >= 0) { d.attendees.splice(i, 1); btn.classList.remove('on'); }
-    else { d.attendees.push(id); btn.classList.add('on'); }
+    if (i >= 0) {
+      d.attendees.splice(i, 1); btn.classList.remove('on');
+    } else {
+      if (this.headCount() >= this.MAX_HEAD) { toast(`每場最多 ${this.MAX_HEAD} 位,已達上限`); return; }
+      d.attendees.push(id); btn.classList.add('on');
+    }
     btn.setAttribute('aria-pressed', i < 0);
     haptic();
     this.syncPickMeta();
+    this.syncCap();
     this.renderSettle();
   },
 
@@ -414,6 +427,29 @@ const Sessions = {
     const all = document.getElementById('ss-all');
     if (all) all.textContent =
       members.length && this.draft.attendees.length === members.length ? '全部取消' : '全部出席';
+  },
+
+  /* ---------- 每場出席上限(季打 + 臨打合計) ---------- */
+  headCount() { return this.draft.attendees.length + this.draft.guests.length; },
+
+  /* 達到上限時擋住季打勾選鈕(還沒勾的)和臨打「加入」,不重畫整段只切換 disabled */
+  syncCap() {
+    const total = this.headCount();
+    const full = total >= this.MAX_HEAD;
+    const tip = document.getElementById('ss-cap-tip');
+    if (tip) {
+      tip.textContent = full
+        ? `本場出席 ${total}/${this.MAX_HEAD} 人,已達上限(要加人請先移除其他人)`
+        : `本場出席 ${total}/${this.MAX_HEAD} 人`;
+      tip.style.color = full ? 'var(--out)' : '';
+    }
+    document.querySelectorAll('#ss-picks .pick').forEach(btn => {
+      btn.disabled = full && !btn.classList.contains('on');
+    });
+    const gname = document.getElementById('ss-gname');
+    const gadd = document.getElementById('ss-gadd');
+    if (gname) gname.disabled = full;
+    if (gadd) gadd.disabled = full;
   },
 
   /* ---------- 用球(每種球分開記) ---------- */
@@ -549,6 +585,7 @@ const Sessions = {
     row.querySelector('.g-del').addEventListener('click', () => {
       this.draft.guests = this.draft.guests.filter(x => x.mid !== mid);
       row.remove();
+      this.syncCap();
       this.renderSettle();
     });
   },
@@ -557,10 +594,12 @@ const Sessions = {
     const input = document.getElementById('ss-gname');
     const name = input.value.trim();
     if (!name) { toast('請輸入臨打球友名字'); return; }
+    if (this.headCount() >= this.MAX_HEAD) { toast(`每場最多 ${this.MAX_HEAD} 位,已達上限`); return; }
     const m = Members.ensureGuest(name, this.guestGender);
     if (this.draft.guests.some(g => g.mid === m.id)) { toast(`${name} 已經在名單裡了`); input.value = ''; return; }
 
-    const g = { mid: m.id, fee: guestFeeOf(m), paid: true };
+    /* 新加入的臨打球友預設未收:報到時通常還沒付錢,收到才手動標記 */
+    const g = { mid: m.id, fee: guestFeeOf(m), paid: false };
     this.draft.guests.push(g);
 
     const box = document.getElementById('ss-guests');
@@ -576,6 +615,7 @@ const Sessions = {
     input.value = '';
     input.focus();
     haptic();
+    this.syncCap();
     this.renderSettle();
   },
 
