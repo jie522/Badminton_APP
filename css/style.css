@@ -642,6 +642,11 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; margin-lef
   border-radius: 12px; padding: 8px 10px; margin-bottom: 6px;
 }
 .use-row.on { border-color: var(--accent); background: var(--accent-soft); }
+.use-row .u-logo {
+  width: 40px; height: 40px; border-radius: var(--radius-sm); flex-shrink: 0;
+  object-fit: cover; background: var(--accent-soft); color: var(--accent);
+}
+.use-row .u-logo.icon-only { display: flex; align-items: center; justify-content: center; }
 .use-row .u-main { flex: 1; min-width: 0; }
 .use-row .u-name {
   font-size: 14px; font-weight: 700;

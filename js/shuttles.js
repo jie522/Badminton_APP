@@ -84,7 +84,10 @@ const Shuttles = {
     const ids = this.list().map(s => s.id);
     (use || []).forEach(u => { if (!ids.includes(u.sid || '')) ids.push(u.sid || ''); });
     if (!ids.length) ids.push('');          // 一種球都沒登記時,至少給一個「未指定球種」
-    return ids.map(sid => ({ sid, name: this.nameOf(sid), unit: this.unitPriceOf(sid), left: this.stockOf(sid) }));
+    return ids.map(sid => ({
+      sid, name: this.nameOf(sid), unit: this.unitPriceOf(sid), left: this.stockOf(sid),
+      photoId: (sid && (this.byId(sid) || {}).photoId) || '',
+    }));
   },
 
   setCurrent(id) {
@@ -156,6 +159,14 @@ const Shuttles = {
     const div = document.createElement('div');
     div.className = 'shuttle-photo-preview icon-only';
     div.innerHTML = icon('shuttle', '', 28);
+    img.replaceWith(div);
+  },
+
+  /* 場次表單用球列表的小 logo 讀不到時退回圖示(見 js/sessions.js 的 useRowHtml) */
+  rowLogoFallback(img) {
+    const div = document.createElement('div');
+    div.className = 'u-logo icon-only';
+    div.innerHTML = icon('shuttle', '', 18);
     img.replaceWith(div);
   },
 

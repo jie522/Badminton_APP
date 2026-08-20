@@ -478,7 +478,12 @@ const Sessions = {
   useRowHtml(o) {
     const n = this.useOf(o.sid);
     const left = this.liveLeft(o.sid);
+    const logo = o.photoId
+      ? `<img class="u-logo" src="${esc(Sync.photoUrl(o.photoId, 100))}" alt="" loading="lazy"
+           onerror="Shuttles.rowLogoFallback(this)">`
+      : `<div class="u-logo icon-only">${icon('shuttle', '', 18)}</div>`;
     return `<div class="use-row ${n > 0 ? 'on' : ''}" data-sid="${esc(o.sid)}">
+      ${logo}
       <div class="u-main">
         <div class="u-name">${esc(o.name)}</div>
         <div class="u-sub">每顆 ${Shuttles.priceLabel(o.unit)} · <span class="u-left ${left < 0 ? 'out' : ''}">剩 ${left} 顆</span></div>
