@@ -297,7 +297,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   background: var(--av, var(--accent));
   object-fit: cover;   /* 有上傳照片時(<img>)填滿圓形不變形,色塊(<div>)不受影響 */
 }
-.avatar.sm { width: 30px; height: 30px; font-size: 13px; }
+.avatar.sm { width: 36px; height: 36px; font-size: 14px; }
 .avatar.lg { width: 56px; height: 56px; font-size: 22px; }
 .avatar.xl { width: 84px; height: 84px; font-size: 30px; }
 .avatar.dim { opacity: .45; }
@@ -429,7 +429,7 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   border-radius: 999px; padding: 5px 14px 5px 5px; font-size: 14px; min-height: 38px;
 }
 .pick.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
-.pick .avatar.xs { width: 26px; height: 26px; font-size: 11px; flex-shrink: 0; }
+.pick .avatar.xs { width: 32px; height: 32px; font-size: 13px; flex-shrink: 0; }
 .pick:disabled, .inline-add input:disabled, .inline-add .btn:disabled { opacity: .4; }
 
 /* 臨打列 */
