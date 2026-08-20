@@ -137,6 +137,7 @@ const Seasons = {
       <input type="number" id="se-fee" inputmode="numeric" value="${s ? num(s.fee) : 3000}">
       <p class="hint" style="margin:-4px 0 4px">大部分人收這個金額。要單獨調某個人(學生半價、教練免繳),
       到那位球員的資料裡填「個人季費」,不用動這裡。</p>
+      ${s ? `<button class="btn block" id="se-closing" type="button">${icon('wallet', '', 16)} 查看季結算</button>` : ''}
       ${s ? `
         <h3>照片 <span class="hint">(${(s.photos || []).length} 張)</span></h3>
         <div class="photo-grid" id="se-photos">
@@ -147,6 +148,7 @@ const Seasons = {
       ${s ? '<button class="btn danger block" id="se-del">刪除這一季</button>' : ''}
     `);
     if (s) {
+      document.getElementById('se-closing').addEventListener('click', () => this.openClosing(s.id));
       document.getElementById('se-upload').addEventListener('click', () =>
         Photos.pickAndUpload('seasons', s.id, () => this.openEdit(s.id)));
       document.querySelectorAll('#se-photos img').forEach(img =>
@@ -183,6 +185,47 @@ const Seasons = {
       Finance.render();
       toast('已刪除');
     });
+  },
+
+  /* ---------- 季結算 ----------
+   * 每季結束時看兩件事:這一季期間收支的餘額、目前羽球庫存值多少錢(剩幾顆 × 單價)。
+   * 餘額算法跟 Finance.render() 的「本季收支」一樣(用場次日期落在季別區間內的帳,
+   * 不含期初餘額那筆設定值);羽球庫存是全部球種目前的庫存,不是這一季單獨買的,
+   * 因為球是跨季留用的資產,結算時看「現在還剩多少價值」才有意義。
+   */
+  openClosing(id) {
+    const s = this.byId(id);
+    if (!s) return;
+    const rows = Finance.ledger().filter(r =>
+      r.cat !== Finance.OPENING_CAT && r.date >= (s.start || '') && r.date <= (s.end || '9999'));
+    const t = Finance.totals(rows);
+    const stockRows = Shuttles.stock();
+    const stockValue = stockRows.reduce((n, r) => n + Math.max(0, r.left) * r.unit, 0);
+
+    Modal.open(`
+      <button class="modal-close" data-close>✕</button>
+      <h2>${esc(s.name)} 結算</h2>
+      <p class="hint">${esc(s.start || '')} ~ ${esc(s.end || '')} 期間的收支(不含期初餘額)。</p>
+      <div class="settle">
+        <div class="settle-line"><span>收入</span><span class="n in">+${money(t.income)}</span></div>
+        <div class="settle-line"><span>支出</span><span class="n out">-${money(t.expense)}</span></div>
+        <div class="settle-line total"><span>這一季餘額</span><span class="n ${t.balance >= 0 ? 'in' : 'out'}">${t.balance >= 0 ? '+' : ''}${money(t.balance)}</span></div>
+      </div>
+      <h3>羽球庫存價值 <span class="hint">(現在還剩多少,不限這一季買的)</span></h3>
+      <div class="card-list">
+        ${stockRows.length ? stockRows.map(r => `
+          <div class="row-card">
+            <div class="row-main">
+              <div class="row-title" style="font-size:15px">${esc(r.name)}</div>
+              <div class="row-sub">剩 ${Math.max(0, r.left)} 顆 × ${Shuttles.priceLabel(r.unit)}</div>
+            </div>
+            <div class="row-right"><div class="row-amount">${money(Math.max(0, r.left) * r.unit)}</div></div>
+          </div>`).join('') : '<p class="hint">還沒有羽球庫存資料</p>'}
+      </div>
+      <div class="settle" style="margin-top:10px">
+        <div class="settle-line total"><span>羽球庫存總價值</span><span class="n">${money(stockValue)}</span></div>
+      </div>
+    `);
   },
 };
 
