@@ -205,7 +205,7 @@ const Sessions = {
     this.draft = s
       ? JSON.parse(JSON.stringify(s))
       : {
-          id: uid(), date: todayStr(), venue: c.venue, time: c.time,
+          id: uid(), date: nextFriday(), venue: c.venue, time: c.time,
           courtFee: 0, acFee: num(c.acFee), shuttleUse: [],   // 場地費已改季繳,新場次固定 0
           attendees: [], guests: [], note: '', photos: [],
           createdAt: new Date().toISOString(),

@@ -212,6 +212,14 @@ function todayStr(d = new Date()) {
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
+/* 下一個週五(今天如果就是週五就回傳今天):新增場次表單的日期預設用這個,
+ * 球隊固定週五打球,不用每次手動改日期。 */
+function nextFriday(from = new Date()) {
+  const d = new Date(from);
+  d.setDate(d.getDate() + (5 - d.getDay() + 7) % 7);
+  return todayStr(d);
+}
+
 /* '2026-08-18' → '8/18(二)' */
 function shortDate(iso) {
   const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
