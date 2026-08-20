@@ -200,7 +200,7 @@ const Seasons = {
       r.cat !== Finance.OPENING_CAT && r.date >= (s.start || '') && r.date <= (s.end || '9999'));
     const t = Finance.totals(rows);
     const stockRows = Shuttles.stock();
-    const stockValue = stockRows.reduce((n, r) => n + Math.max(0, r.left) * r.unit, 0);
+    const stockValue = Shuttles.stockValue();
 
     Modal.open(`
       <button class="modal-close" data-close>✕</button>

@@ -97,11 +97,21 @@ const Shuttles = {
     this.saveList(l);
   },
 
+  /* 目前所有球種的庫存總價值(剩幾顆 × 單價,加總) */
+  stockValue() {
+    return this.stock().reduce((n, r) => n + Math.max(0, r.left) * r.unit, 0);
+  },
+
   /* ---------- 設定頁的球種清單 ---------- */
   render() {
     const box = document.getElementById('shuttle-list');
     if (!box) return;
     const l = this.list();
+    const valueBox = document.getElementById('shuttle-value');
+    if (valueBox) {
+      const v = this.stockValue();
+      valueBox.textContent = v > 0 ? `目前羽球庫存總價值約 ${money(v)}` : '';
+    }
     if (!l.length) {
       box.innerHTML = `<p class="hint">還沒有登記球種,目前每場用球以單顆 ${money(cfg().shuttlePrice)} 估算。</p>`;
       return;
