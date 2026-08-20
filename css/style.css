@@ -421,15 +421,18 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .season-pay b { color: var(--text); }
 .link-btn { border: none; background: none; color: var(--accent); font-size: 13px; font-weight: 700; padding: 6px 0; }
 
-/* ============ 出席勾選 ============ */
-.pick-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+/* ============ 出席勾選 ============
+ * 固定一列 3 個、寬度一樣(grid 而不是 flex 自動換行),名字太長就縮寫加省略號,
+ * 不然人一多就會東倒西歪、每列個數不一致。 */
+.pick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .pick {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; box-sizing: border-box;
   border: 1px solid var(--border); background: var(--bg); color: var(--text2);
-  border-radius: 999px; padding: 5px 14px 5px 5px; font-size: 14px; min-height: 38px;
+  border-radius: 999px; padding: 5px 10px 5px 5px; font-size: 14px; min-height: 38px;
 }
 .pick.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
 .pick .avatar.xs { width: 32px; height: 32px; font-size: 13px; flex-shrink: 0; }
+.pick .p-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pick:disabled, .inline-add input:disabled, .inline-add .btn:disabled { opacity: .4; }
 
 /* 臨打列 */

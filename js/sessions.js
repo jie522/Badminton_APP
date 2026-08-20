@@ -394,7 +394,7 @@ const Sessions = {
       ? members.map(m =>
           `<button class="pick ${this.draft.attendees.includes(m.id) ? 'on' : ''}" type="button"
              data-id="${esc(m.id)}" aria-pressed="${this.draft.attendees.includes(m.id)}">
-             ${avatarHtml(m.name, 'xs', m.avatarId)}<span>${esc(m.name)}</span></button>`).join('')
+             ${avatarHtml(m.name, 'xs', m.avatarId)}<span class="p-nm">${esc(m.name)}</span></button>`).join('')
       : '<p class="hint">還沒有季打球員,先到「人員」頁新增</p>';
     box.querySelectorAll('.pick').forEach(btn =>
       btn.addEventListener('click', () => this.togglePick(btn)));
