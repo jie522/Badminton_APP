@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 9;
+var VERSION = 10;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -75,8 +75,8 @@ var TABLES = {
   },
   shuttles: {
     tab: '羽球品項',
-    fields: ['id', 'name', 'balls', 'price', 'current', 'photoId'],
-    headers: ['id', '球種名稱', '一筒幾顆', '一筒價格', '目前使用', '照片id'],
+    fields: ['id', 'name', 'balls', 'price', 'current', 'photoId', 'openStock'],
+    headers: ['id', '球種名稱', '一筒幾顆', '一筒價格', '目前使用', '照片id', '期初數量'],
     extraHeaders: ['單顆成本'],
     extras: function (o) {
       var balls = Number(o.balls) || 0;
@@ -95,7 +95,7 @@ var TABLES = {
 };
 
 var JSON_FIELDS = ['attendees', 'guests', 'photos', 'shuttleUse'];
-var NUM_FIELDS = ['fee', 'amount', 'qty', 'courtFee', 'acFee', 'shuttles', 'balls', 'price', 'tubes'];
+var NUM_FIELDS = ['fee', 'amount', 'qty', 'courtFee', 'acFee', 'shuttles', 'balls', 'price', 'tubes', 'openStock'];
 var BOOL_FIELDS = ['active', 'current'];
 /* 值是空白時要當成 true 的布林欄位(active 沒填代表還在打;current 沒填代表不是目前使用的球種) */
 var BOOL_DEFAULT_TRUE = ['active'];

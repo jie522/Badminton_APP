@@ -185,8 +185,8 @@ const Finance = {
   /* 羽球庫存合計(每一種球的明細見 Shuttles.stock()) */
   shuttleStock() {
     return Shuttles.stock().reduce((a, r) => ({
-      bought: a.bought + r.bought, used: a.used + r.used, left: a.left + r.left,
-    }), { bought: 0, used: 0, left: 0 });
+      open: a.open + (r.open || 0), bought: a.bought + r.bought, used: a.used + r.used, left: a.left + r.left,
+    }), { open: 0, bought: 0, used: 0, left: 0 });
   },
 
   /* 各球種庫存卡:哪一種還剩幾顆、快用完了沒 */
@@ -195,15 +195,15 @@ const Finance = {
     if (!rows.length) return '';
     return `<div class="chart-card">
       <div class="chart-head"><span class="chart-title">羽球庫存</span>
-        <span class="chart-legend"><span>買進 − 用掉</span></span></div>
+        <span class="chart-legend"><span>期初 + 買進 − 用掉</span></span></div>
       <div class="card-list">
         ${rows.map(r => `
           <div class="row-card ${r.left <= 0 ? 'out-left' : r.left < 6 ? '' : 'in-left'}">
             <div class="row-main">
               <div class="row-title" style="font-size:15px">${esc(r.name)}
-                ${r.left <= 0 && r.bought ? '<span class="chip unpaid">用完了</span>'
+                ${r.left <= 0 && (r.bought || r.open) ? '<span class="chip unpaid">用完了</span>'
                   : r.left > 0 && r.left < 6 ? '<span class="chip unpaid">快用完</span>' : ''}</div>
-              <div class="row-sub">買 ${r.bought} / 用 ${r.used} · 每顆 ${Shuttles.priceLabel(r.unit)}</div>
+              <div class="row-sub">${r.open ? `期初 ${r.open} / ` : ''}買 ${r.bought} / 用 ${r.used} · 每顆 ${Shuttles.priceLabel(r.unit)}</div>
             </div>
             <div class="row-right">
               <div class="row-amount ${r.left <= 0 ? 'out' : ''}">${r.left}<span style="font-size:12px"> 顆</span></div>
@@ -238,7 +238,7 @@ const Finance = {
         </div>
       </div>
       <div class="stat-grid">
-        <div class="stat"><div class="k">羽球庫存(買 ${stock.bought} / 用 ${stock.used})</div>
+        <div class="stat"><div class="k">羽球庫存(${stock.open ? `期初 ${stock.open} / ` : ''}買 ${stock.bought} / 用 ${stock.used})</div>
           <div class="v ${stock.left < 6 ? 'out' : ''}">${stock.left}<span style="font-size:12px"> 顆</span></div></div>
         <div class="stat"><div class="k">${esc((Shuttles.current() || {}).name || '單顆成本')}</div>
           <div class="v" style="font-size:15px">${Shuttles.unitLabel()}<span style="font-size:12px"> /顆</span></div></div>

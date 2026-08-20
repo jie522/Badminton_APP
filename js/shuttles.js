@@ -48,13 +48,14 @@ const Shuttles = {
   },
 
   /* ---------- 庫存(每一種球分開算) ----------
+   * 期初:開始用這個 App 記帳前已經有的顆數(openStock);
    * 買進:收支頁「買球」那筆帳的顆數;用掉:各場次用球明細裡這一種的數量。
-   * 沒指定球種的舊帳 / 自訂買球,歸到 sid === '' 這一組。
+   * 沒指定球種的舊帳 / 自訂買球,歸到 sid === '' 這一組(沒有期初數量可設)。
    */
   stock() {
     const map = {};
-    const touch = sid => (map[sid] = map[sid] || { sid, bought: 0, used: 0 });
-    this.list().forEach(s => touch(s.id));
+    const touch = sid => (map[sid] = map[sid] || { sid, open: 0, bought: 0, used: 0 });
+    this.list().forEach(s => { touch(s.id).open = num(s.openStock); });
     Finance.txns().forEach(t => {
       if (t.cat !== '買球') return;
       touch(t.shuttleId || '').bought += num(t.qty);
@@ -63,9 +64,9 @@ const Shuttles = {
       (s.shuttleUse || []).forEach(u => { touch(u.sid || '').used += num(u.n); }));
 
     return Object.values(map)
-      .map(r => ({ ...r, left: r.bought - r.used, name: this.nameOf(r.sid), unit: this.unitPriceOf(r.sid) }))
+      .map(r => ({ ...r, left: r.open + r.bought - r.used, name: this.nameOf(r.sid), unit: this.unitPriceOf(r.sid) }))
       /* 沒登記、也沒買賣紀錄的空組別不用佔位置 */
-      .filter(r => r.sid || r.bought || r.used)
+      .filter(r => r.sid || r.open || r.bought || r.used)
       .sort((a, b) => {
         const cur = (this.current() || {}).id;
         if (a.sid === cur) return -1;
@@ -107,7 +108,7 @@ const Shuttles = {
     }
     const cur = this.current();
     const stock = this.stock();
-    const stockOf = sid => stock.find(r => r.sid === sid) || { bought: 0, used: 0, left: 0 };
+    const stockOf = sid => stock.find(r => r.sid === sid) || { open: 0, bought: 0, used: 0, left: 0 };
 
     box.innerHTML = l.map(s => {
       const st = stockOf(s.id);
@@ -120,9 +121,10 @@ const Shuttles = {
         <div class="row-main">
           <div class="row-title" style="font-size:15px">${esc(s.name)}
             ${cur && s.id === cur.id ? '<span class="chip">目前使用</span>' : ''}
-            ${st.left <= 0 && st.bought ? '<span class="chip unpaid">用完了</span>'
+            ${st.left <= 0 && (st.bought || st.open) ? '<span class="chip unpaid">用完了</span>'
               : st.left > 0 && st.left < 6 ? '<span class="chip unpaid">快用完</span>' : ''}</div>
-          <div class="row-sub">一筒 ${num(s.balls)} 顆 · ${money(s.price)} · 買 ${st.bought} / 用 ${st.used}</div>
+          <div class="row-sub">一筒 ${num(s.balls)} 顆 · ${money(s.price)}
+            · ${st.open ? `期初 ${st.open} / ` : ''}買 ${st.bought} / 用 ${st.used}</div>
         </div>
         <div class="row-right">
           <div class="row-amount">${st.left}<span style="font-size:12px"> 顆</span></div>
@@ -198,6 +200,9 @@ const Shuttles = {
       <div class="settle">
         <div class="settle-line total"><span>換算單顆成本</span><span class="n" id="sh-unit">—</span></div>
       </div>
+      <label>期初數量(顆)</label>
+      <input type="number" id="sh-open" inputmode="numeric" value="${s ? num(s.openStock) : 0}">
+      <p class="hint" style="margin-top:-6px">開始用這個 App 記帳前,手上已經有的顆數(不是買球紀錄,直接算進庫存)。</p>
       <label>使用狀態</label>
       <div class="type-picker" id="sh-current">
         <button data-cur="1" class="${isCurrent ? 'active' : ''}">目前使用</button>
@@ -244,6 +249,7 @@ const Shuttles = {
         name,
         balls: num(balls.value),
         price: num(price.value),
+        openStock: num(document.getElementById('sh-open').value),
         current: document.querySelector('#sh-current button.active').dataset.cur === '1',
         photoId: s ? (s.photoId || '') : '',   // 存檔是整包重建物件,照片要顯式帶過去才不會不見
       };

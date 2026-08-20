@@ -14,7 +14,8 @@
  *                        attendees:[memberId], guests:[{mid, fee, paid}],
  *                        note, photos:[{id, caption}], createdAt }
  *   shuttles 羽球品項   { id, name, balls, price, current,
- *                        photoId }   ← 這種球的參考照片(球盒/包裝),單張,沒上傳就顯示球拍圖示
+ *                        photoId,    ← 這種球的參考照片(球盒/包裝),單張,沒上傳就顯示球拍圖示
+ *                        openStock } ← 期初數量:開始用這個 App 記帳前已經有的顆數,算進庫存但不算「買進」
  *                      單顆成本 = price / balls
  *   txns     手動帳目   { id, date, kind:'in'|'out', cat, amount, qty, shuttleId, tubes, note,
  *                        photos:[{id, caption}] }
