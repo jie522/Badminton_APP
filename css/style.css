@@ -461,6 +461,8 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .settle-line { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; padding: 4px 0; }
 .settle-line .n { font-variant-numeric: tabular-nums; font-weight: 600; }
 .settle-line.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px; font-weight: 800; }
+/* 羽球耗用費用是參考值(買球已付款,不是這場的現金流),用虛線隔開、字調小,不跟上面的公款進出混在一起 */
+.settle-line.ref { border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 8px; font-size: 13px; color: var(--text2); }
 .settle-line .in { color: var(--in); }
 .settle-line .out { color: var(--out); }
 .settle-note { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.6; }

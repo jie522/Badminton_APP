@@ -498,7 +498,12 @@ const Sessions = {
 
   renderUse() {
     const box = document.getElementById('ss-use');
-    const opts = Shuttles.optionsFor(this.draft.shuttleUse);
+    /* 庫存用完的球種不列出來(避免選到沒球可用的),但這場本來就記過的
+     * (useOf > 0)還是要留著,不然沒辦法改數量或移除;「未指定球種」不受此限,
+     * 沒登記任何球種時它是唯一能記用球的選項,不能因為沒有庫存概念就被濾掉。 */
+    const registered = new Set(Shuttles.list().map(s => s.id));
+    const opts = Shuttles.optionsFor(this.draft.shuttleUse).filter(o =>
+      !registered.has(o.sid) || this.useOf(o.sid) > 0 || this.liveLeft(o.sid) > 0);
     box.innerHTML = opts.map(o => this.useRowHtml(o)).join('');
     box.querySelectorAll('.use-row').forEach(row => this.bindUseRow(row));
 
@@ -647,8 +652,10 @@ const Sessions = {
         ${calc.courtFee ? `<div class="settle-line"><span>場地費(舊制)</span><span class="n out">-${money(calc.courtFee)}</span></div>` : ''}
         <div class="settle-line"><span>冷氣費</span><span class="n out">-${money(calc.acFee)}</span></div>
         <div class="settle-line total"><span>本場公款進出</span><span class="n ${calc.net >= 0 ? 'in' : 'out'}">${calc.net >= 0 ? '+' : ''}${money(calc.net)}</span></div>
+        ${calc.shuttles ? `<div class="settle-line ref"><span>羽球耗用費用 <span class="hint" style="font-size:11px">(參考,已在買球時付款)</span></span><span class="n">${money(calc.shuttleCost)}</span></div>` : ''}
       </div>
-      <p class="settle-note">出席 ${calc.head} 人。${calc.shuttles ? `<br>${useLines}<br>球材成本合計 ${money(calc.shuttleCost)}(買球時已付款,不算在上面的公款進出)。` : ''}<br>
+      ${calc.shuttles ? `<p class="settle-note">${useLines}</p>` : ''}
+      <p class="settle-note">出席 ${calc.head} 人。<br>
       本場實際成本 ${money(calc.cost)},平均每人 ${money(calc.perHead)}。</p>`;
   },
 
