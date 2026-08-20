@@ -11,6 +11,7 @@ const Sessions = {
   guestGender: 'M',   // 臨打報到時的男/女切換,加入一位後保持不變(一群女生一起來時不用每次重切)
   unpaidOpen: false,  // 未收款橫條有沒有展開
   MAX_HEAD: 8,        // 每場出席上限(季打 + 臨打合計),場地一次只夠這麼多人
+  settleShown: false, // 冷氣費和臨打費要按過「結算」才會算給你看,改欄位要重按
 
   list() { return Store.load('sessions', []); },
   saveList(l) { Store.save('sessions', l); Sync.bg('sessions'); },
@@ -200,6 +201,7 @@ const Sessions = {
     const s = id ? this.byId(id) : null;
     const c = cfg();
     this.isEdit = !!s;
+    this.settleShown = false;
     this.draft = s
       ? JSON.parse(JSON.stringify(s))
       : {
@@ -218,7 +220,7 @@ const Sessions = {
     Modal.open(`
       <button class="modal-close" data-close aria-label="關閉">✕</button>
       <div class="sess-head">
-        <h2>${s ? '這場紀錄' : '記一場球'}</h2>
+        <h2>${s ? '場次紀錄' : '記一場球'}</h2>
         <span class="sess-net" id="ss-net-badge"></span>
       </div>
       <div id="sess-form"></div>
@@ -330,8 +332,8 @@ const Sessions = {
 
     /* 場地費(舊資料才有這個欄位)/ 冷氣費邊打邊反映在結算 */
     const court = document.getElementById('ss-court');
-    if (court) court.addEventListener('input', () => { this.readForm(); this.renderSettle(); });
-    document.getElementById('ss-ac').addEventListener('input', () => { this.readForm(); this.renderSettle(); });
+    if (court) court.addEventListener('input', () => { this.readForm(); this.invalidateSettle(); });
+    document.getElementById('ss-ac').addEventListener('input', () => { this.readForm(); this.invalidateSettle(); });
 
     const allBtn = document.getElementById('ss-all');
     if (allBtn) allBtn.addEventListener('click', () => {
@@ -578,7 +580,7 @@ const Sessions = {
     row.querySelector('.g-fee').addEventListener('input', e => {
       const g = this.guestOf(mid);
       if (g) g.fee = num(e.target.value);
-      this.renderSettle();
+      this.invalidateSettle();
     });
 
     row.querySelector('.g-paid').addEventListener('click', e => {
@@ -589,14 +591,14 @@ const Sessions = {
       b.classList.toggle('on', g.paid);
       b.textContent = g.paid ? '✓ 已收' : '未收';
       haptic();
-      this.renderSettle();
+      this.invalidateSettle();
     });
 
     row.querySelector('.g-del').addEventListener('click', () => {
       this.draft.guests = this.draft.guests.filter(x => x.mid !== mid);
       row.remove();
       this.syncCap();
-      this.renderSettle();
+      this.invalidateSettle();
     });
   },
 
@@ -626,20 +628,37 @@ const Sessions = {
     input.focus();
     haptic();
     this.syncCap();
-    this.renderSettle();
+    this.invalidateSettle();
   },
 
-  /* ---------- 結算(唯一會反覆重畫的區塊,裡面沒有要綁事件的東西) ---------- */
+  /* ---------- 結算(唯一會反覆重畫的區塊,裡面沒有要綁事件的東西) ----------
+   * 冷氣費和臨打費不是邊填邊自動算好——按過「結算」才會顯示金額,不然球還沒收完錢、
+   * 冷氣費還沒填就先看到一個會一直跳動的數字,反而搞不清楚現在是不是最終結果。
+   * 改冷氣費 / 臨打金額 / 已收未收 / 加人刪人都會呼叫 invalidateSettle() 把這個收起來,
+   * 要重新按一次才會顯示;季打出席和用球顆數不影響這兩筆錢,所以不用重按。
+   */
   renderSettle() {
     const d = this.draft;
     const calc = this.calc(d);
+    const badge = document.getElementById('ss-net-badge');
+
+    if (!this.settleShown) {
+      if (badge) { badge.className = 'sess-net pending'; badge.textContent = '未結算'; }
+      document.getElementById('ss-settle').innerHTML = `
+        <p class="hint">冷氣費和臨打球友的費用還沒結算。金額、已收 / 未收都填好、勾好之後,
+        按下面按鈕才會算出這場賺賠多少。</p>
+        <button class="btn primary block" id="ss-do-settle" type="button">${icon('wallet', '', 16)} 結算這場</button>`;
+      const btn = document.getElementById('ss-do-settle');
+      if (btn) btn.addEventListener('click', () => this.doSettle());
+      return;
+    }
+
     /* 用球明細:一種球一行,寫清楚幾顆 × 單價 = 多少錢 */
     const useLines = calc.use.map(u =>
       `${esc(Shuttles.nameOf(u.sid))} ${num(u.n)} 顆 × ${Shuttles.priceLabel(Shuttles.unitPriceOf(u.sid))}
        = ${money(num(u.n) * Shuttles.unitPriceOf(u.sid))}`).join('<br>');
 
     /* 標題旁邊的徽章跟著結算一起更新,不用滑到最下面才看得到淨額 */
-    const badge = document.getElementById('ss-net-badge');
     if (badge) {
       badge.className = `sess-net ${calc.net >= 0 ? 'in' : 'out'}`;
       badge.textContent = `${calc.net >= 0 ? '+' : ''}${money(calc.net)}`;
@@ -657,6 +676,18 @@ const Sessions = {
       ${calc.shuttles ? `<p class="settle-note">${useLines}</p>` : ''}
       <p class="settle-note">出席 ${calc.head} 人。<br>
       本場實際成本 ${money(calc.cost)},平均每人 ${money(calc.perHead)}。</p>`;
+  },
+
+  doSettle() {
+    this.settleShown = true;
+    haptic();
+    this.renderSettle();
+  },
+
+  /* 冷氣費 / 臨打費相關欄位一有變動就呼叫這個,把結算收回去、要求重按 */
+  invalidateSettle() {
+    this.settleShown = false;
+    this.renderSettle();
   },
 
   /* redraw=false 用在「先存檔再上傳照片」,不重畫畫面 */

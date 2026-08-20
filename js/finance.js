@@ -227,6 +227,7 @@ const Finance = {
       : activity;
     const st = this.totals(seasonRows);
     const stock = this.shuttleStock();
+    const stockValue = Shuttles.stockValue();
 
     document.getElementById('finance-balance').innerHTML = `
       <div class="balance-card">
@@ -235,7 +236,9 @@ const Finance = {
         <div class="balance-sub">
           <div><span>${season ? season.name + ' 收入' : '總收入'}</span><b>${money(st.income)}</b></div>
           <div><span>${season ? season.name + ' 支出' : '總支出'}</span><b>${money(st.expense)}</b></div>
+          <div><span>羽球庫存價值</span><b>${money(stockValue)}</b></div>
         </div>
+        ${stockValue ? `<div class="balance-total">公款餘額 + 羽球庫存 共 <b>${money(all.balance + stockValue)}</b></div>` : ''}
       </div>
       <div class="stat-grid">
         <div class="stat"><div class="k">羽球庫存(${stock.open ? `期初 ${stock.open} / ` : ''}買 ${stock.bought} / 用 ${stock.used})</div>
