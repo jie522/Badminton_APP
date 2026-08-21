@@ -426,6 +426,9 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .season-pay { font-size: 13px; color: var(--text2); }
 .season-pay b { color: var(--text); }
 .link-btn { border: none; background: none; color: var(--accent); font-size: 13px; font-weight: 700; padding: 6px 0; }
+/* 季別卡底下的捷徑列。並排的兩顆要吃得到 38px 的點擊高度,所以這裡的 padding 比一般 link-btn 大 */
+.season-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.season-actions .link-btn { padding: 10px 0; }
 
 /* ============ 出席勾選 ============
  * 固定一列 3 個、寬度一樣(grid 而不是 flex 自動換行),名字太長就縮寫加省略號,

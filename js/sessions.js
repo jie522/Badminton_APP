@@ -11,11 +11,15 @@ const Sessions = {
   guestGender: 'M',   // 臨打報到時的男/女切換,加入一位後保持不變(一群女生一起來時不用每次重切)
   unpaidOpen: false,  // 未收款橫條有沒有展開
   MAX_HEAD: 8,        // 每場出席上限(季打 + 臨打合計),場地一次只夠這麼多人
-  settleShown: false, // 冷氣費和臨打費要按過「結算」才會算給你看,改欄位要重按
 
   list() { return Store.load('sessions', []); },
   saveList(l) { Store.save('sessions', l); Sync.bg('sessions'); },
   byId(id) { return this.list().find(s => s.id === id) || null; },
+
+  /* 這場的錢確認完了沒(冷氣費 + 臨打費)。存在紀錄上的 settled 欄位,不是畫面暫存,
+   * 所以關掉再打開還記得。舊資料沒有這個欄位(在還沒有「結算這場」之前記的),
+   * 一律當成已結算 —— 只有明確是 false 才叫未結算。 */
+  isSettled(s) { return !s || s.settled !== false; },
 
   /* ---------- 每場結算 ----------
    * 季打球員的場地費已經含在季費裡,當場不再收錢;臨打球友每場收一次固定費用。
@@ -97,6 +101,7 @@ const Sessions = {
         <div class="row-main">
           <div class="row-title">${cover ? `<span class="row-date">${esc(d.md)}</span>` : ''}${esc(s.venue || '打球')}
             ${c.guestUnpaid ? `<span class="chip unpaid">有人未付</span>` : ''}
+            ${this.isSettled(s) ? '' : `<span class="chip off">未結算</span>`}
           </div>
           <div class="row-sub">季打 ${c.seasonCount} · 臨打 ${c.guestCount} · 用球 ${c.shuttles} 顆${c.use.length > 1 ? `(${c.use.length} 種)` : ''}${s.time ? ' · ' + esc(s.time) : ''}${photos ? ' · 照片 ' + photos : ''}</div>
         </div>
@@ -201,13 +206,12 @@ const Sessions = {
     const s = id ? this.byId(id) : null;
     const c = cfg();
     this.isEdit = !!s;
-    this.settleShown = false;
     this.draft = s
       ? JSON.parse(JSON.stringify(s))
       : {
           id: uid(), date: nextFriday(), venue: c.venue, time: c.time,
           courtFee: 0, acFee: num(c.acFee), shuttleUse: [],   // 場地費已改季繳,新場次固定 0
-          attendees: [], guests: [], note: '', photos: [],
+          attendees: [], guests: [], note: '', photos: [], settled: false,
           createdAt: new Date().toISOString(),
         };
     if (!this.draft.attendees) this.draft.attendees = [];
@@ -636,13 +640,15 @@ const Sessions = {
    * 冷氣費還沒填就先看到一個會一直跳動的數字,反而搞不清楚現在是不是最終結果。
    * 改冷氣費 / 臨打金額 / 已收未收 / 加人刪人都會呼叫 invalidateSettle() 把這個收起來,
    * 要重新按一次才會顯示;季打出席和用球顆數不影響這兩筆錢,所以不用重按。
+   * 結不結算是記在 draft.settled 上、跟著「儲存這場」一起存進紀錄的,
+   * 不是畫面暫存 —— 關掉再打開同一場,已經結算過的直接顯示金額,不用重按一次。
    */
   renderSettle() {
     const d = this.draft;
     const calc = this.calc(d);
     const badge = document.getElementById('ss-net-badge');
 
-    if (!this.settleShown) {
+    if (!this.isSettled(d)) {
       if (badge) { badge.className = 'sess-net pending'; badge.textContent = '未結算'; }
       document.getElementById('ss-settle').innerHTML = `
         <p class="hint">冷氣費和臨打球友的費用還沒結算。金額、已收 / 未收都填好、勾好之後,
@@ -679,14 +685,15 @@ const Sessions = {
   },
 
   doSettle() {
-    this.settleShown = true;
+    this.readForm();          // 冷氣費打完沒離開欄位就直接按結算也要算到
+    this.draft.settled = true;
     haptic();
     this.renderSettle();
   },
 
   /* 冷氣費 / 臨打費相關欄位一有變動就呼叫這個,把結算收回去、要求重按 */
   invalidateSettle() {
-    this.settleShown = false;
+    this.draft.settled = false;
     this.renderSettle();
   },
 

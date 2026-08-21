@@ -27,7 +27,7 @@
 2. `apps-script/Code.gs` 的 `TABLES` 定義(`fields` + `headers`,必要時 `extras` 人看的欄位)。
    `extras` 裡查名字的欄位(季打名單、用球明細…)是**寫入當下**去查對照表組出來的,所以
    `Store.TABLES` 的順序要讓被參照的表(members、shuttles)排在 sessions 前面,否則第一次整批上傳會印出 id
-3. 若是陣列/物件欄位,加進 `Code.gs` 的 `JSON_FIELDS`;數字加進 `NUM_FIELDS`;日期加進 `DATE_FIELDS` 和 `TEXT_FIELDS`;布林欄位加進 `BOOL_FIELDS`,**空白時該視為 true 的才加進 `BOOL_DEFAULT_TRUE`**(`active` 是,`current` 不是)
+3. 若是陣列/物件欄位,加進 `Code.gs` 的 `JSON_FIELDS`;數字加進 `NUM_FIELDS`;日期加進 `DATE_FIELDS` 和 `TEXT_FIELDS`;布林欄位加進 `BOOL_FIELDS`,**空白時該視為 true 的才加進 `BOOL_DEFAULT_TRUE`**(`active`、`settled` 是,`current` 不是)
 
 舊資料的欄位補齊寫在 `js/store.js` 的 `migrate()`,啟動時跑一次;新增有預設值的欄位時記得一起補。
 
@@ -52,6 +52,9 @@
 - **場地費已改季繳**,不再逐場收:季費裡的公款支出,直接在「收支」頁記一筆手動帳(分類選「包場 / 押金」),不是場次的欄位。
   `session.courtFee` 是**舊制欄位**,只留著讓歷史資料的數字不消失(舊場次 `courtFee > 0` 時表單和結算才會顯示這個欄位,新場次固定是 `0`,不要在新增場次時把它填回去)。
   現在每場真正會收的設施費是**冷氣費**(`session.acFee`,預設 0,`cfg().acFee` 可調預設值),行為完全比照原本場地費的模式(逐場可調、進 `Sessions.calc()` 的 `net`/`cost`)。
+- **一場的錢確認完了沒,記在 `session.settled`**:按過表單裡的「結算這場」才是 `true`,跟著「儲存這場」存進紀錄,不是畫面暫存 —— 關掉再打開同一場不用重按。
+  改冷氣費 / 臨打金額 / 已收未收 / 加人刪人都會 `invalidateSettle()` 打回 `false`(季打出席和用球顆數不影響這兩筆錢,不用重按)。
+  判斷要用 `Sessions.isSettled(s)`(**只有明確是 `false` 才算未結算**),不要寫 `if (s.settled)` —— 舊場次是在還沒有這顆按鈕的版本記的,沒有這個欄位,一律當已結算,不然整份歷史紀錄會突然全部標成「未結算」。
 - **每場公款進出** = 臨打收入 − 場地費(舊制)− 冷氣費。
 - **球費不進每場現金流**:買球的錢在「收支」頁記買球那筆時就已經付出去了,場次裡的用球明細只用來算球材成本參考值和羽球庫存。**不要為了讓每場帳看起來完整而把球費加進現金流,那會重複記帳。**
 - **用球分球種記**:`session.shuttleUse = [{sid, n}]`,一場可以同時用到多種球,各自用 `Shuttles.unitPriceOf(sid)` 算錢再加總(`Sessions.calc()` 的 `shuttleCost`)。`sid` 是空字串代表「未指定球種」,單價退回 `cfg().shuttlePrice`。**不要再回頭改成單一 `shuttles` 數字欄位。**

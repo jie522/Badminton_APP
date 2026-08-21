@@ -14,6 +14,8 @@
  *                        acFee,      ← 冷氣費,預設 0,新場次的每場設施費用改用這個欄位
  *                        shuttleUse:[{sid, n}],   ← 這場哪一種球用了幾顆(sid 空字串 = 未指定球種)
  *                        attendees:[memberId], guests:[{mid, fee, paid}],
+ *                        settled,    ← 「冷氣費、臨打費都確認過了」。按下場次表單的「結算這場」才變 true,
+ *                                       改到冷氣費 / 臨打金額 / 已收未收 會變回 false(要重新確認一次)
  *                        note, photos:[{id, caption}], createdAt }
  *   shuttles 羽球品項   { id, name, balls, price, current,
  *                        photoId,    ← 這種球的參考照片(球盒/包裝),單張,沒上傳就顯示球拍圖示
@@ -154,6 +156,13 @@ function migrate() {
       if (!s.shuttleUse) s.shuttleUse = num(s.shuttles) > 0 ? [{ sid: cur, n: num(s.shuttles) }] : [];
       delete s.shuttles;
     });
+    Store.save('sessions', sessions);
+  }
+  /* 新增「已結算」旗標:舊場次一律當成已結算。
+   * 這些場次是在還沒有「結算這場」按鈕的版本記的(金額一直都直接算給你看),
+   * 預設 false 會讓整份歷史紀錄突然全部標成「未結算」,看起來像出了什麼事。 */
+  if (sessions.some(s => s.settled === undefined)) {
+    sessions.forEach(s => { if (s.settled === undefined) s.settled = true; });
     Store.save('sessions', sessions);
   }
   cleanZeroPayments();

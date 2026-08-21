@@ -138,7 +138,6 @@ const Seasons = {
       <p class="hint" style="margin:-4px 0 4px">大部分人收這個金額。要單獨調某個人(學生半價、教練免繳),
       到那位球員的資料裡填「個人季費」,不用動這裡。</p>
       ${s ? `<button class="btn block" id="se-closing" type="button">${icon('wallet', '', 16)} 查看季結算</button>` : ''}
-      ${s ? `<button class="btn block" id="se-calendar" type="button">${icon('shuttle', '', 16)} 查看本季行事曆(週五)</button>` : ''}
       ${s ? `
         <h3>照片 <span class="hint">(${(s.photos || []).length} 張)</span></h3>
         <div class="photo-grid" id="se-photos">
@@ -150,7 +149,6 @@ const Seasons = {
     `);
     if (s) {
       document.getElementById('se-closing').addEventListener('click', () => this.openClosing(s.id));
-      document.getElementById('se-calendar').addEventListener('click', () => this.openCalendar(s.id));
       document.getElementById('se-upload').addEventListener('click', () =>
         Photos.pickAndUpload('seasons', s.id, () => this.openEdit(s.id)));
       document.querySelectorAll('#se-photos img').forEach(img =>
@@ -475,12 +473,18 @@ const Members = {
         <div class="season-bar"><i style="width:${pct}%"></i></div>
         <div class="season-pay">季費已繳 <b>${s.paidCount}/${s.total}</b> 人 · 已收 <b>${money(s.received)}</b>
           ${s.expected > s.received ? ` · 待收 <b>${money(s.expected - s.received)}</b>` : ''}</div>
-        <button class="link-btn" id="season-collect">收季費 →</button>`;
+        <div class="season-actions">
+          <button class="link-btn" id="season-collect">收季費 →</button>
+          <button class="link-btn" id="season-calendar">本季行事曆 →</button>
+        </div>`;
     }
     const manage = document.getElementById('season-manage');
     if (manage) manage.addEventListener('click', () => Seasons.openManage());
     const collect = document.getElementById('season-collect');
     if (collect) collect.addEventListener('click', () => this.openCollect());
+    /* 行事曆本來只在「季別 → 編輯這一季」裡面,藏三層太深,季別卡直接給一個入口 */
+    const cal = document.getElementById('season-calendar');
+    if (cal) cal.addEventListener('click', () => Seasons.openCalendar(season.id));
   },
 
   /* 一次勾選誰繳了季費 */
