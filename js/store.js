@@ -9,7 +9,7 @@
  *                                                    date 是那個週五,note 選填的原因,見 Seasons.openCalendar()
  *   payments 季費繳納   { id, seasonId, memberId, amount, date, note }
  *   sessions 打球場次   { id, date, venue, time,
- *                        courtFee,   ← 舊制:場地費逐場收。已改季繳(記一筆手動帳,分類選「包場 / 押金」),
+ *                        courtFee,   ← 舊制:場地費逐場收。已改季繳(記一筆手動帳,分類選「場地季繳」),
  *                                       新場次固定是 0,欄位留著只是不讓舊資料的歷史數字消失
  *                        acFee,      ← 冷氣費,預設 0,新場次的每場設施費用改用這個欄位
  *                        shuttleUse:[{sid, n}],   ← 這場哪一種球用了幾顆(sid 空字串 = 未指定球種)
@@ -166,6 +166,22 @@ function migrate() {
     Store.save('sessions', sessions);
   }
   cleanZeroPayments();
+  renameLegacyCats();
+}
+
+/* 支出分類「包場 / 押金」改叫「場地季繳」(場地費已經改成整季繳一次,叫「包場」
+ * 看不出這筆是季繳的場租)。舊帳目存的是分類的字串本身,不改的話會變成選單裡
+ * 沒有的孤兒分類,編輯那筆時選不回原本的值。
+ * 跟 cleanZeroPayments() 一樣:開機清一次、從 Sheet 拉回資料後也要清一次
+ * (見 app.js 的 pullAndRender),不然 Sheet 上的舊字串每次同步又蓋回本機。
+ * 回傳有沒有改到東西,呼叫端用這個決定要不要同步回 Sheet。 */
+function renameLegacyCats() {
+  const list = Store.load('txns', []);
+  let hit = false;
+  list.forEach(t => { if (t.cat === '包場 / 押金') { t.cat = '場地季繳'; hit = true; } });
+  if (!hit) return false;
+  Store.save('txns', list);
+  return true;
 }
 
 /* 清掉 $0 / 負數的季費繳納紀錄(舊版曾在「免繳」狀態下誤按產生 $0 紀錄,

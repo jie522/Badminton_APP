@@ -204,6 +204,7 @@ async function pullAndRender() {
     /* Sheet 上如果還留著舊版產生的 $0 季費紀錄,pull 下來又會蓋回本機,
      * 清完立刻同步回去,這樣 Sheet 那份也會跟著乾淨,不用每次開機都在清。 */
     if (cleanZeroPayments()) Sync.bg('payments');
+    if (renameLegacyCats()) Sync.bg('txns');       // 同上:Sheet 上舊的「包場 / 押金」也一併改掉
     renderAll();
     refreshSyncStatus();
     return true;
