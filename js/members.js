@@ -137,6 +137,7 @@ const Seasons = {
       <input type="number" id="se-fee" inputmode="numeric" value="${s ? num(s.fee) : 3000}">
       <p class="hint" style="margin:-4px 0 4px">大部分人收這個金額。要單獨調某個人(學生半價、教練免繳),
       到那位球員的資料裡填「個人季費」,不用動這裡。</p>
+      ${s ? `<button class="btn block" id="se-cal" type="button">${icon('shuttle', '', 16)} 這一季的行事曆</button>` : ''}
       ${s ? `<button class="btn block" id="se-closing" type="button">${icon('wallet', '', 16)} 查看季結算</button>` : ''}
       ${s ? `
         <h3>照片 <span class="hint">(${(s.photos || []).length} 張)</span></h3>
@@ -148,6 +149,9 @@ const Seasons = {
       ${s ? '<button class="btn danger block" id="se-del">刪除這一季</button>' : ''}
     `);
     if (s) {
+      /* 季別卡上的「本季行事曆」只開得了「目前這一季」(current()),
+       * 其他季別(還沒開始的下一季、已經結束的上一季)要從這裡進去才看得到。 */
+      document.getElementById('se-cal').addEventListener('click', () => this.openCalendar(s.id));
       document.getElementById('se-closing').addEventListener('click', () => this.openClosing(s.id));
       document.getElementById('se-upload').addEventListener('click', () =>
         Photos.pickAndUpload('seasons', s.id, () => this.openEdit(s.id)));
