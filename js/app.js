@@ -205,6 +205,9 @@ async function pullAndRender() {
      * 清完立刻同步回去,這樣 Sheet 那份也會跟著乾淨,不用每次開機都在清。 */
     if (cleanZeroPayments()) Sync.bg('payments');
     if (renameLegacyCats()) Sync.bg('txns');       // 同上:Sheet 上舊的「包場 / 押金」也一併改掉
+    /* Sheet 上還沒有「團長」欄(Code.gs 重新部署前)時,pull 回來的球員資料會把
+     * 團長旗標洗掉,補回來並寫回 Sheet;重新部署之後這裡就不會再改到東西了。 */
+    if (initLeader()) Sync.bg('members');
     renderAll();
     refreshSyncStatus();
     return true;

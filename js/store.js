@@ -167,23 +167,30 @@ function migrate() {
     sessions.forEach(s => { if (s.settled === undefined) s.settled = true; });
     Store.save('sessions', sessions);
   }
-  /* 團長:舊資料沒有這個欄位,開機時補一次 ——「良捷」是團長。
-   * 只在「還沒有任何人是團長」時才補,補過就把旗標記在裝置設定裡不再跑,
-   * 之後換人當團長(或把良捷的團長取消)才不會每次開 App 又被蓋回去。
-   * 名單還沒同步下來(找不到這個人)時不記旗標,等第一次 pull 完下次開機再補。 */
-  if (!s.leaderInit) {
-    if (members.some(m => m.leader)) setCfg({ leaderInit: true });
-    else {
-      const lead = members.find(m => m.name === '良捷');
-      if (lead) {
-        lead.leader = true;
-        Store.save('members', members);
-        setCfg({ leaderInit: true });
-      }
-    }
-  }
+  initLeader();
   cleanZeroPayments();
   renameLegacyCats();
+}
+
+/* 團長:舊資料沒有這個欄位,「良捷」是團長,開機時補上。
+ * **不能只在開機補一次**:Sheet 上的「團長」欄要等 Code.gs 重新部署(VERSION 13)
+ * 才存在,在那之前每次 pull 回來的球員資料都沒有這個旗標,補過的值會被整張表覆寫掉
+ * (看起來就是「標了色又不見了」)。所以跟 cleanZeroPayments() / renameLegacyCats()
+ * 同一個模式:開機跑一次、從 Sheet 拉回資料後也跑一次(見 app.js 的 pullAndRender)。
+ * 只有在「沒有任何人是團長」時才補,所以換人當團長之後不會被蓋回去。
+ * 回傳有沒有改到東西,呼叫端用這個決定要不要同步回 Sheet。 */
+const LEADER_NAME = '良捷';
+
+function initLeader() {
+  const list = Store.load('members', []);
+  if (list.some(m => m.leader)) return false;
+  /* 名字有可能存成「良捷(隊長)」這種,完全相符找不到就退而求其次找包含的 */
+  const lead = list.find(m => String(m.name || '').trim() === LEADER_NAME)
+    || list.find(m => String(m.name || '').includes(LEADER_NAME));
+  if (!lead) return false;
+  lead.leader = true;
+  Store.save('members', list);
+  return true;
 }
 
 /* 支出分類「包場 / 押金」改叫「場地季繳」(場地費已經改成整季繳一次,叫「包場」
