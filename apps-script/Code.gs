@@ -18,7 +18,7 @@
  * 不然線上跑的還是舊版。VERSION 會在 ping 時回傳,可以用來確認。
  */
 
-var VERSION = 12;
+var VERSION = 13;
 
 /* 這份程式碼**建議**用「在 Sheet 裡開啟 Apps Script」的方式部署(擴充功能 → Apps Script),
  * 這樣它會自動綁定那份 Sheet,不用填任何 id。
@@ -34,11 +34,11 @@ var PHOTO_FOLDER_NAME = '羽球管理APP 相簿';
 var TABLES = {
   members: {
     tab: '球員',
-    fields: ['id', 'name', 'type', 'gender', 'phone', 'note', 'active', 'createdAt', 'seasonFee', 'avatarId'],
-    headers: ['id', '姓名', '類型', '性別', '電話', '備註', '啟用', '建立時間', '個人季費', '大頭貼id'],
-    extraHeaders: ['類型(中文)', '性別(中文)'],
+    fields: ['id', 'name', 'type', 'gender', 'phone', 'note', 'active', 'createdAt', 'seasonFee', 'avatarId', 'leader'],
+    headers: ['id', '姓名', '類型', '性別', '電話', '備註', '啟用', '建立時間', '個人季費', '大頭貼id', '團長'],
+    extraHeaders: ['類型(中文)', '性別(中文)', '隊職務'],
     extras: function (o) {
-      return [o.type === 'guest' ? '臨打' : '季打', o.gender === 'F' ? '女' : '男'];
+      return [o.type === 'guest' ? '臨打' : '季打', o.gender === 'F' ? '女' : '男', o.leader ? '團長' : ''];
     },
   },
   seasons: {
@@ -96,7 +96,7 @@ var TABLES = {
 
 var JSON_FIELDS = ['attendees', 'guests', 'photos', 'shuttleUse', 'skips'];
 var NUM_FIELDS = ['fee', 'amount', 'qty', 'courtFee', 'acFee', 'shuttles', 'balls', 'price', 'tubes', 'openStock'];
-var BOOL_FIELDS = ['active', 'current', 'settled'];
+var BOOL_FIELDS = ['active', 'current', 'settled', 'leader'];
 /* 值是空白時要當成 true 的布林欄位
  * active   沒填代表還在打
  * current  沒填代表不是目前使用的球種,所以不在這裡

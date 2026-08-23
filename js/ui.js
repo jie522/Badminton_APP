@@ -145,6 +145,7 @@ const ICONS = {
   search: '<circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.6 15.6L20 20"/>',
   close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
   chevron: '<path d="M9.5 5.8l6.2 6.2-6.2 6.2"/>',
+  crown: '<path d="M3.6 7.4l3.6 3.2L12 5l4.8 5.6 3.6-3.2-1.6 10.2H5.2z"/><path d="M5.2 19.4h13.6"/>',
 };
 
 function icon(name, cls = '', size = 24) {

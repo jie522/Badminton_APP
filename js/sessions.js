@@ -202,14 +202,16 @@ const Sessions = {
   /* ---------- 新增 / 編輯 ---------- */
   openAdd() { this.openEdit(null); },
 
-  openEdit(id) {
+  /* presetDate:從行事曆點某一天進來時帶的日期(見 Seasons.renderDayPanel),
+   * 沒帶就照原本的規則預設下一個週五 */
+  openEdit(id, presetDate) {
     const s = id ? this.byId(id) : null;
     const c = cfg();
     this.isEdit = !!s;
     this.draft = s
       ? JSON.parse(JSON.stringify(s))
       : {
-          id: uid(), date: nextFriday(), venue: c.venue, time: c.time,
+          id: uid(), date: presetDate || nextFriday(), venue: c.venue, time: c.time,
           courtFee: 0, acFee: num(c.acFee), shuttleUse: [],   // 場地費已改季繳,新場次固定 0
           attendees: [], guests: [], note: '', photos: [], settled: false,
           createdAt: new Date().toISOString(),

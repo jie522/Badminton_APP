@@ -122,7 +122,8 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); bo
  * (瀏覽器不會為「因為 CSS 變數改變而變的顏色」重新啟動 transition),
  * 結果是切到淺色後頁籤還留著深色模式的螢光綠。 */
 .btn, .pick, .row-card, .segmented button, .type-picker button,
-.g-paid, .fab, .icon-btn, .link-btn, .tab, .swatch, .alert-bar {
+.g-paid, .fab, .icon-btn, .link-btn, .tab, .swatch, .alert-bar,
+.cal-cell, .cal-nav {
   transition: transform .1s ease, background-color .15s ease;
 }
 .btn:active, .pick:active, .row-card:active, .segmented button:active,
@@ -682,3 +683,57 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; margin-lef
 .stepper .u-n::-webkit-outer-spin-button,
 .stepper .u-n::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .stepper .u-n { -moz-appearance: textfield; }
+
+/* ============ 月曆(季別行事曆) ============
+ * 一次顯示一個月,7 欄格子:格子是正方形(aspect-ratio),375px 寬的手機上一格約 42px,
+ * 所以裡面只放日期和一個符號,不放中文字(塞不下會換行把格子撐歪)。
+ * 顏色全部走變數,深色模式自動跟著換;按壓回饋只 transition transform / background-color。
+ */
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 0 8px; }
+.cal-title { font-size: 15.5px; font-weight: 800; }
+.cal-nav {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  border: 1px solid var(--border); background: var(--card); color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+}
+.cal-nav[disabled] { opacity: .3; }
+.cal-nav.prev .ic { transform: rotate(180deg); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wd { margin-bottom: 4px; }
+.cal-wd div { text-align: center; font-size: 11px; font-weight: 700; color: var(--text2); }
+.cal-wd div:nth-child(6) { color: var(--accent); }   /* 週五是球局日 */
+.cal-cell {
+  aspect-ratio: 1 / 1; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border: 1px solid transparent; border-radius: 10px;
+  background: transparent; color: var(--text2);
+  font-variant-numeric: tabular-nums;
+}
+.cal-cell .d { font-size: 13.5px; font-weight: 700; line-height: 1.1; }
+.cal-cell .mk { font-size: 10px; line-height: 1; height: 11px; }
+.cal-cell.blank { visibility: hidden; }
+.cal-cell.out { opacity: .35; }                       /* 季別區間外的日子,不能點 */
+.cal-cell.in { background: var(--bg); color: var(--text); }
+.cal-cell.fri { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.cal-cell.played { background: var(--in-soft); color: var(--in); border-color: transparent; }
+.cal-cell.skip { background: var(--out-soft); color: var(--out); border-color: transparent; }
+.cal-cell.skip .d { text-decoration: line-through; }
+.cal-cell.today { box-shadow: inset 0 0 0 2px var(--text2); }
+.cal-cell.on { box-shadow: inset 0 0 0 2px var(--text); }   /* 點開的那一天 */
+.cal-cell:active { transform: scale(.92); }
+.cal-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--text2); margin-top: 10px; }
+.cal-legend b { font-weight: 800; }
+.cal-legend .c-fri { color: var(--accent); }
+.cal-legend .c-played { color: var(--in); }
+.cal-legend .c-skip { color: var(--out); }
+
+/* ============ 團長 ============
+ * 團長只有一位,在名單裡要一眼認得出來:整張卡片淡主題色 + 左邊主題色帶,
+ * 跟收支卡的 in-left / out-left 同一套做法(用 ::before 而不是 border,圓角不會被切平)。
+ */
+.row-card.leader { background: var(--accent-soft); border-color: var(--accent); padding-left: 16px; }
+.row-card.leader::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+.chip.leader {
+  background: var(--accent); color: var(--card);
+  display: inline-flex; align-items: center; gap: 3px;
+}

@@ -3,7 +3,9 @@
  * 資料表(每張都是一個陣列,存在 localStorage,啟用同步後鏡像到 Google Sheet):
  *   members  球員       { id, name, type:'season'|'guest', gender:'M'|'F', phone, note, active, createdAt,
  *                        seasonFee,   ← 個人季費;留白 = 用季別預設,填 0 = 免繳(見 seasonFeeOf)
- *                        avatarId }   ← 大頭貼,Google Drive 檔案 id,沒上傳就退回名字色塊(見 avatarHtml)
+ *                        avatarId,    ← 大頭貼,Google Drive 檔案 id,沒上傳就退回名字色塊(見 avatarHtml)
+ *                        leader }     ← 團長,全隊只有一位(存檔時會把別人的 leader 清掉),
+ *                                        名單上整張卡片會用主題色標出來(見 Members.rowCardHtml)
  *   seasons  季別       { id, name, start, end, fee, photos:[{id, caption}],
  *                        skips:[{date, note}] }   ← 這一季裡手動標記「避開」的週五(國定假日、下雨…),
  *                                                    date 是那個週五,note 選填的原因,見 Seasons.openCalendar()
@@ -164,6 +166,21 @@ function migrate() {
   if (sessions.some(s => s.settled === undefined)) {
     sessions.forEach(s => { if (s.settled === undefined) s.settled = true; });
     Store.save('sessions', sessions);
+  }
+  /* 團長:舊資料沒有這個欄位,開機時補一次 ——「良捷」是團長。
+   * 只在「還沒有任何人是團長」時才補,補過就把旗標記在裝置設定裡不再跑,
+   * 之後換人當團長(或把良捷的團長取消)才不會每次開 App 又被蓋回去。
+   * 名單還沒同步下來(找不到這個人)時不記旗標,等第一次 pull 完下次開機再補。 */
+  if (!s.leaderInit) {
+    if (members.some(m => m.leader)) setCfg({ leaderInit: true });
+    else {
+      const lead = members.find(m => m.name === '良捷');
+      if (lead) {
+        lead.leader = true;
+        Store.save('members', members);
+        setCfg({ leaderInit: true });
+      }
+    }
   }
   cleanZeroPayments();
   renameLegacyCats();

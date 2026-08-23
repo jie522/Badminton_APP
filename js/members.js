@@ -229,91 +229,208 @@ const Seasons = {
     `);
   },
 
-  /* ---------- 行事曆(這一季所有週五) ----------
-   * 球隊固定週五打球,列出這一季區間內每個週五:已經有場次紀錄的自動標「已打」,
-   * 其餘的可以手動標「避開」(國定假日、下雨、場地公休…),原因自己填,
-   * 不內建台灣國定假日表(逐年要維護、還有補假問題,靜態網頁不好保證跟得上)。
+  /* ---------- 行事曆(月曆) ----------
+   * 球隊固定週五打球,所以行事曆就畫成一頁真的月曆:週五是球局日(高亮),
+   * 已經記過場次的那天標 ✓,手動標「避開」的標 ✕(國定假日、下雨、場地公休…原因自己填,
+   * 不內建台灣國定假日表 —— 逐年要維護、還有補假問題,靜態網頁不好保證跟得上)。
+   * 編輯方式跟一般月曆一樣「點日期就編輯那天」:點一天會在月曆下面展開那天的操作
+   * (標記 / 取消避開、開啟已經記過的那場、或直接記一場球,非週五的加打也可以),
+   * 不另外開第二層彈窗;點同一天第二次就收起來。
    */
-  openCalendar(id) {
+  calId: '',        // 現在開著哪一季的行事曆
+  calMonth: '',     // 現在顯示的月份 'YYYY-MM'
+  calPick: '',      // 點開的那一天 'YYYY-MM-DD',空字串 = 沒點開任何一天
+
+  openCalendar(id, month, pick) {
     const s = this.byId(id);
     if (!s) return;
     if (!s.start || !s.end) { toast('這一季還沒設定開始/結束日期'); return; }
-
-    const fridays = [];
-    const d = new Date(s.start + 'T00:00:00');
-    d.setDate(d.getDate() + (5 - d.getDay() + 7) % 7);   // 這一季第一個週五
-    const end = new Date(s.end + 'T00:00:00');
-    while (d <= end) { fridays.push(todayStr(d)); d.setDate(d.getDate() + 7); }
-
-    const sessionDates = new Set(Sessions.list().map(x => x.date));
-
+    this.calId = s.id;
+    this.calMonth = month || this.clampMonth(s, monthOf(todayStr()));
+    this.calPick = pick || '';
     Modal.open(`
-      <button class="modal-close" data-close>✕</button>
+      <button class="modal-close" data-close aria-label="關閉">✕</button>
       <h2>${esc(s.name)} 行事曆</h2>
-      <p class="hint">${esc(s.start)} ~ ${esc(s.end)} 期間每個週五。點一下未安排的週五可以標記「避開」
-      (國定假日、下雨、場地公休…原因自己填),已經記過場次的會自動標「已打」,不能點。</p>
-      <div class="card-list" id="cal-list"></div>
+      <p class="hint">${esc(s.start)} ~ ${esc(s.end)}。週五是固定球局日,點一天就能標記避開、
+      開啟已經記過的那場,或直接記一場球。</p>
+      <div id="cal-wrap"></div>
+      <div id="cal-day"></div>
+      <div id="cal-skips"></div>
     `);
-
-    const render = () => {
-      const skips = s.skips || [];
-      const box = document.getElementById('cal-list');
-      box.innerHTML = fridays.map(date => {
-        const played = sessionDates.has(date);
-        const skip = skips.find(k => k.date === date);
-        const dp = dateParts(date);
-        const right = played
-          ? '<span class="chip paid">已打</span>'
-          : skip
-            ? `<span class="chip off">避開${skip.note ? '・' + esc(skip.note) : ''}</span>`
-            : '<span class="chip unpaid">未安排</span>';
-        return `<button class="row-card" data-date="${esc(date)}" ${played ? 'disabled' : ''}>
-          <div class="date-tile"><b>${esc(dp.md)}</b><span>${esc(dp.wd)}</span></div>
-          <div class="row-main"><div class="row-title" style="font-size:15px">${esc(date)}</div></div>
-          <div class="row-right">${right}</div>
-        </button>`;
-      }).join('');
-      box.querySelectorAll('.row-card:not([disabled])').forEach(el =>
-        el.addEventListener('click', () => {
-          const date = el.dataset.date;
-          if ((s.skips || []).some(k => k.date === date)) {
-            s.skips = s.skips.filter(k => k.date !== date);
-            this.saveList(this.list().map(x => x.id === s.id ? s : x));
-            haptic();
-            render();
-            toast('已取消避開標記');
-          } else {
-            this.openSkipNote(s.id, date);
-          }
-        }));
-    };
-    render();
+    this.renderCalendar();
+    this.renderDayPanel();
   },
 
-  /* 標記某個週五避開,填個原因(選填),存檔後回到行事曆 */
-  openSkipNote(seasonId, date) {
-    const s = this.byId(seasonId);
-    if (!s) return;
+  /* 把月份夾在季別的起訖月份之間:季別還沒開始 / 已經結束時,打開就停在最近的那個月 */
+  clampMonth(s, m) {
+    const lo = monthOf(s.start), hi = monthOf(s.end);
+    return m < lo ? lo : m > hi ? hi : m;
+  },
+
+  /* 月曆本體:上面切月份、中間 7 欄格子、下面圖例和這個月的統計 */
+  renderCalendar() {
+    const s = this.byId(this.calId);
+    const box = document.getElementById('cal-wrap');
+    if (!s || !box) return;
+    const [y, mo] = this.calMonth.split('-').map(Number);
+    const days = new Date(y, mo, 0).getDate();          // 這個月有幾天
+    const lead = new Date(y, mo - 1, 1).getDay();       // 1 號是星期幾(0 = 週日)
+    const cells = Math.ceil((lead + days) / 7) * 7;     // 補滿整週,格子才對得齊
+    const lo = monthOf(s.start), hi = monthOf(s.end);
+    const played = new Set(Sessions.list().map(x => x.date));
+    const skips = s.skips || [];
+    const today = todayStr();
+    let fri = 0, friPlayed = 0, friSkip = 0;
+
+    let html = `
+      <div class="cal-head">
+        <button class="cal-nav prev" id="cal-prev" ${this.calMonth <= lo ? 'disabled' : ''} aria-label="上個月">${icon('chevron', '', 18)}</button>
+        <div class="cal-title">${y} 年 ${mo} 月</div>
+        <button class="cal-nav" id="cal-next" ${this.calMonth >= hi ? 'disabled' : ''} aria-label="下個月">${icon('chevron', '', 18)}</button>
+      </div>
+      <div class="cal-grid cal-wd">${WEEKDAYS.map(w => `<div>${w}</div>`).join('')}</div>
+      <div class="cal-grid">`;
+
+    for (let i = 0; i < cells; i++) {
+      const d = i - lead + 1;
+      if (d < 1 || d > days) { html += '<div class="cal-cell blank"></div>'; continue; }
+      const date = `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const inSeason = date >= s.start && date <= s.end;
+      const isFri = new Date(y, mo - 1, d).getDay() === 5;
+      const isPlayed = played.has(date);
+      const skip = skips.find(k => k.date === date);
+      if (inSeason && isFri) { fri++; if (isPlayed) friPlayed++; else if (skip) friSkip++; }
+      const cls = ['cal-cell'];
+      if (!inSeason) cls.push('out');
+      else {
+        cls.push('in');
+        if (isPlayed) cls.push('played');
+        else if (skip) cls.push('skip');
+        else if (isFri) cls.push('fri');
+      }
+      if (date === today) cls.push('today');
+      if (date === this.calPick) cls.push('on');
+      /* 標記用符號不用文字:格子只有 40 幾 px 寬,中文塞不下會換行 */
+      const mk = isPlayed ? '✓' : skip ? '✕' : (inSeason && isFri) ? '●' : '';
+      html += `<button class="${cls.join(' ')}" data-date="${esc(date)}" ${inSeason ? '' : 'disabled'}>
+        <span class="d">${d}</span><span class="mk">${mk}</span></button>`;
+    }
+
+    html += `</div>
+      <div class="cal-legend">
+        <span><b class="c-fri">●</b> 球局日</span>
+        <span><b class="c-played">✓</b> 已打</span>
+        <span><b class="c-skip">✕</b> 避開</span>
+      </div>
+      <p class="hint" style="margin-top:6px">這個月球局 ${fri} 天 · 已打 ${friPlayed} · 避開 ${friSkip} · 待打 ${Math.max(0, fri - friPlayed - friSkip)}</p>`;
+    box.innerHTML = html;
+
+    document.getElementById('cal-prev').addEventListener('click', () => this.stepMonth(-1));
+    document.getElementById('cal-next').addEventListener('click', () => this.stepMonth(1));
+    box.querySelectorAll('.cal-cell:not([disabled])').forEach(el =>
+      el.addEventListener('click', () => {
+        /* 點同一天第二次就收起來,跟一般月曆一樣 */
+        this.calPick = this.calPick === el.dataset.date ? '' : el.dataset.date;
+        haptic();
+        this.renderCalendar();
+        this.renderDayPanel();
+      }));
+    this.renderSkipList();
+  },
+
+  stepMonth(step) {
+    const [y, mo] = this.calMonth.split('-').map(Number);
+    this.calMonth = monthOf(todayStr(new Date(y, mo - 1 + step, 1)));
+    this.calPick = '';
+    this.renderCalendar();
+    this.renderDayPanel();
+  },
+
+  /* 點開的那一天:能做的事直接展開在月曆下面,不換頁也不開第二層彈窗 */
+  renderDayPanel() {
+    const s = this.byId(this.calId);
+    const box = document.getElementById('cal-day');
+    if (!s || !box) return;
+    const date = this.calPick;
+    if (!date) { box.innerHTML = ''; return; }
     const dp = dateParts(date);
-    Modal.open(`
-      <button class="modal-close" data-close>✕</button>
-      <h2>標記避開 · ${esc(dp.md)}(${esc(dp.wd)})</h2>
-      <label>原因(選填)</label>
-      <input type="text" id="cs-note" placeholder="例如:國定假日、下雨、場地公休">
-      <button class="btn primary block" id="cs-save">標記這天避開</button>
-    `);
-    document.getElementById('cs-save').addEventListener('click', () => {
-      const note = document.getElementById('cs-note').value.trim();
-      const list = this.list();
-      const rec = list.find(x => x.id === seasonId);
-      if (!rec) return;
-      if (!rec.skips) rec.skips = [];
-      if (!rec.skips.some(k => k.date === date)) rec.skips.push({ date, note });
-      this.saveList(list);
-      haptic();
+    const sess = Sessions.list().find(x => x.date === date);
+    const skip = (s.skips || []).find(k => k.date === date);
+    const isFri = new Date(date + 'T00:00:00').getDay() === 5;
+
+    box.innerHTML = `
+      <div class="form-section">
+        <h3>${esc(dp.md)}(${esc(dp.wd)})
+          ${sess ? '<span class="chip paid">已打</span>'
+            : skip ? '<span class="chip unpaid">避開</span>'
+              : isFri ? '<span class="chip">球局日</span>' : '<span class="chip off">一般日</span>'}</h3>
+        ${sess
+          ? `<p class="hint">已經記過這一場(${esc(sess.venue || '打球')})。</p>
+             <button class="btn primary block" id="cal-open">開啟這場紀錄</button>`
+          : skip
+            ? `<p class="hint">已標記避開${skip.note ? ':' + esc(skip.note) : '(沒填原因)'}</p>
+               <button class="btn block" id="cal-unskip">取消避開</button>
+               <button class="btn primary block" id="cal-add">還是有打,記一場球</button>`
+            : `${isFri ? `<label>避開的原因(選填)</label>
+                 <input type="text" id="cal-note" placeholder="例如:國定假日、下雨、場地公休">
+                 <button class="btn block" id="cal-skip">標記這天避開</button>` : ''}
+               <button class="btn primary block" id="cal-add">記這天的一場球</button>`}
+      </div>`;
+
+    const open = document.getElementById('cal-open');
+    if (open) open.addEventListener('click', () => Sessions.openEdit(sess.id));
+    const add = document.getElementById('cal-add');
+    if (add) add.addEventListener('click', () => Sessions.openEdit(null, date));
+    const mark = document.getElementById('cal-skip');
+    if (mark) mark.addEventListener('click', () => {
+      this.setSkip(date, document.getElementById('cal-note').value.trim());
       toast('已標記避開');
-      this.openCalendar(seasonId);
     });
+    const un = document.getElementById('cal-unskip');
+    if (un) un.addEventListener('click', () => { this.setSkip(date, null); toast('已取消避開標記'); });
+  },
+
+  /* 標記 / 取消某天避開(note 傳 null 就是取消) */
+  setSkip(date, note) {
+    const list = this.list();
+    const rec = list.find(x => x.id === this.calId);
+    if (!rec) return;
+    rec.skips = (rec.skips || []).filter(k => k.date !== date);
+    if (note !== null) rec.skips.push({ date, note });
+    rec.skips.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    this.saveList(list);
+    haptic();
+    this.renderCalendar();
+    this.renderDayPanel();
+  },
+
+  /* 月曆一次只看得到一個月,整季標過的避開日子列在最下面,點一下跳到那天 */
+  renderSkipList() {
+    const s = this.byId(this.calId);
+    const box = document.getElementById('cal-skips');
+    if (!s || !box) return;
+    const skips = [...(s.skips || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (!skips.length) { box.innerHTML = ''; return; }
+    box.innerHTML = `
+      <h3>這一季避開 <span class="hint">(${skips.length} 天)</span></h3>
+      <div class="card-list">
+        ${skips.map(k => {
+          const dp = dateParts(k.date);
+          return `<button class="row-card" data-jump="${esc(k.date)}">
+            <div class="date-tile"><b>${esc(dp.md)}</b><span>${esc(dp.wd)}</span></div>
+            <div class="row-main"><div class="row-title" style="font-size:15px">${esc(k.note || '避開')}</div></div>
+            <div class="row-right"><span class="chip off">查看</span></div>
+          </button>`;
+        }).join('')}
+      </div>`;
+    box.querySelectorAll('[data-jump]').forEach(el =>
+      el.addEventListener('click', () => {
+        const date = el.dataset.jump;
+        this.calMonth = this.clampMonth(s, monthOf(date));
+        this.calPick = date;
+        this.renderCalendar();
+        this.renderDayPanel();
+      }));
   },
 };
 
@@ -383,11 +500,14 @@ const Members = {
           : '<span class="chip unpaid">季費未繳</span>';
     }
     /* 已經在對的頁面了(季打頁只有季打、人員頁只有臨打),不用再標一次類型;
-     * 有沒有繳錢才是要一眼看到的重點,單獨放右邊、保留紅/綠/中性的顏色語意。 */
-    return `<button class="row-card" data-id="${esc(m.id)}">
+     * 有沒有繳錢才是要一眼看到的重點,單獨放右邊、保留紅/綠/中性的顏色語意。
+     * 團長不是用一個小徽章帶過,整張卡片換成主題色底 + 左邊色帶(.row-card.leader),
+     * 在一長串名字裡才真的一眼認得出來。 */
+    return `<button class="row-card${m.leader ? ' leader' : ''}" data-id="${esc(m.id)}">
         ${avatarHtml(m.name, m.active === false ? 'dim' : '', m.avatarId)}
         <div class="row-main">
           <div class="row-title">${esc(m.name)}
+            ${m.leader ? `<span class="chip leader">${icon('crown', '', 12)}團長</span>` : ''}
             ${m.active === false ? '<span class="chip off">停打</span>' : ''}
           </div>
           <div class="row-sub">${GENDER[genderOf(m)]}${m.type === 'guest' ? ` · 單場 ${money(guestFeeOf(m))}` : ''}${m.type === 'season' && hasOwnSeasonFee(m) ? ` · 個人季費 ${money(m.seasonFee)}` : ''} · 出席 ${cnt} 場${m.phone ? ' · ' + esc(m.phone) : ''}${m.note ? ' · ' + esc(m.note) : ''}</div>
@@ -570,6 +690,12 @@ const Members = {
              placeholder="留白 = 用季別預設 ${season ? money(season.fee) : '季費'}">
       <p class="hint" style="margin:-4px 0 4px">學生半價填 1500、教練免繳填 0,這種個別狀況填在這裡,
       不影響其他人,也不用改季別的預設季費。留白就是跟大家一樣。</p>
+      <label>隊職務</label>
+      <div class="type-picker" id="mb-leader">
+        <button data-leader="0" class="${m && m.leader ? '' : 'active'}">隊員</button>
+        <button data-leader="1" class="${m && m.leader ? 'active' : ''}">團長</button>
+      </div>
+      <p class="hint" style="margin:-4px 0 4px">團長只有一位,設了新的團長,原本那位會自動變回隊員。</p>
       <label>電話 / LINE(選填)</label>
       <input type="text" id="mb-phone" value="${esc(m ? m.phone : '')}" placeholder="0912-345-678">
       <label>備註(選填)</label>
@@ -593,7 +719,7 @@ const Members = {
       });
     }
 
-    /* 三組單選(類型 / 性別 / 狀態)行為一樣,一起綁 */
+    /* 幾組單選(類型 / 性別 / 隊職務 / 狀態)行為一樣,一起綁 */
     document.querySelectorAll('#modal .type-picker').forEach(group =>
       group.querySelectorAll('button').forEach(b =>
         b.addEventListener('click', () => {
@@ -616,10 +742,13 @@ const Members = {
         seasonFee: document.getElementById('mb-fee').value.trim() === ''
           ? '' : num(document.getElementById('mb-fee').value),
         active: activeBtn ? activeBtn.dataset.active === '1' : true,
+        leader: document.querySelector('#mb-leader button.active').dataset.leader === '1',
         createdAt: m ? m.createdAt : new Date().toISOString(),
         avatarId: m ? (m.avatarId || '') : '',   // 存檔是整包重建物件,大頭貼要顯式帶過去才不會不見
       };
       const list = this.list();
+      /* 團長只有一位:設了新的團長就把別人的旗標清掉,不然名單上會同時亮兩張卡片 */
+      if (rec.leader) list.forEach(x => { if (x.id !== rec.id) x.leader = false; });
       const i = list.findIndex(x => x.id === rec.id);
       if (i >= 0) list[i] = rec; else list.push(rec);
       this.saveList(list);
@@ -749,6 +878,7 @@ const Members = {
         <div style="min-width:0">
           <h2 style="margin-bottom:6px">${esc(m.name)}</h2>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${m.leader ? `<span class="chip leader">${icon('crown', '', 12)}團長</span>` : ''}
             <span class="chip ${m.type === 'guest' ? 'guest' : ''}">${this.TYPE[m.type]}</span>
             <span class="chip off">${GENDER[genderOf(m)]}</span>
             ${m.active === false ? '<span class="chip off">停打</span>' : ''}
