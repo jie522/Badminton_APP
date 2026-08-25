@@ -134,6 +134,7 @@ const Finance = {
   chartHtml(rows) {
     const months = this.monthly(rows);
     const max = Math.max(1, ...months.map(m => Math.max(m.in, m.out)));
+    const nowKey = monthOf(todayStr());
     /* 1,200 → +1.2k,標在長條上方,寬度才夠站得下 */
     const compact = n => {
       const a = Math.abs(n);
@@ -147,11 +148,13 @@ const Finance = {
       <div class="chart-bars">
         ${months.map(m => {
           const net = m.in - m.out;
-          return `<div class="cbar">
+          /* 每根長條都坐在一條固定高度的淺色軌道裡:沒帳的月份也看得出「那個月是空的」,
+           * 一整排等高的軌道也讓長短比較有基準,不會像一堆浮在空中的細棒子。 */
+          return `<div class="cbar${m.key === nowKey ? ' now' : ''}">
             <span class="net ${net >= 0 ? 'in' : 'out'}">${m.in || m.out ? compact(net) : ''}</span>
             <div class="cbar-stack">
-              <i class="in" style="height:${(m.in / max * 100).toFixed(1)}%" title="收入 ${money(m.in)}"></i>
-              <i class="out" style="height:${(m.out / max * 100).toFixed(1)}%" title="支出 ${money(m.out)}"></i>
+              <span class="ct"><i class="in" style="height:${(m.in / max * 100).toFixed(1)}%"></i></span>
+              <span class="ct"><i class="out" style="height:${(m.out / max * 100).toFixed(1)}%"></i></span>
             </div>
             <span class="m">${m.label}</span>
           </div>`;
@@ -189,13 +192,17 @@ const Finance = {
     }), { open: 0, bought: 0, used: 0, left: 0 });
   },
 
-  /* 各球種庫存卡:哪一種還剩幾顆、快用完了沒 */
+  /* 各球種庫存卡:哪一種還剩幾顆、快用完了沒。
+   * 用 <details> 做成可收合、預設收起來 —— 這是「要查才看」的明細,
+   * 攤開放在流水帳前面會讓每次進收支頁都要多滑一大段。摘要行就先講剩幾顆、值多少錢。 */
   stockHtml() {
     const rows = Shuttles.stock();
     if (!rows.length) return '';
-    return `<div class="chart-card">
-      <div class="chart-head"><span class="chart-title">羽球庫存</span>
-        <span class="chart-legend"><span>期初 + 買進 − 用掉</span></span></div>
+    const left = rows.reduce((n, r) => n + Math.max(0, r.left), 0);
+    return `<details class="chart-card fold">
+      <summary class="chart-head"><span class="chart-title">羽球庫存
+        <span class="hint">剩 ${left} 顆 · ${money(Shuttles.stockValue())}</span></span>
+        <span class="fold-arrow">${icon('chevron', '', 16)}</span></summary>
       <div class="card-list">
         ${rows.map(r => `
           <div class="row-card ${r.left <= 0 ? 'out-left' : r.left < 6 ? '' : 'in-left'}">
@@ -211,7 +218,7 @@ const Finance = {
             </div>
           </div>`).join('')}
       </div>
-    </div>`;
+    </details>`;
   },
 
   /* ---------- 畫面 ---------- */
@@ -229,35 +236,66 @@ const Finance = {
     const stock = this.shuttleStock();
     const stockValue = Shuttles.stockValue();
 
+    const unpaid = this.unpaidGuest();
+    /* 三格小卡的標題要短(375px 下一格只有 100px 出頭),長的明細留給下面的庫存卡,
+     * 標題塞「期初 12 / 買 30 / 用 20」會換行把整排卡片撐高。 */
     document.getElementById('finance-balance').innerHTML = `
       <div class="balance-card">
-        <div class="k">公款餘額</div>
+        <div class="balance-head">
+          <span class="k">${icon('wallet', '', 15)} 公款餘額</span>
+          ${all.balance < 0 ? '<span class="balance-tag">透支</span>' : ''}
+        </div>
         <div class="v">${money(all.balance)}</div>
         <div class="balance-sub">
-          <div><span>${season ? season.name + ' 收入' : '總收入'}</span><b>${money(st.income)}</b></div>
-          <div><span>${season ? season.name + ' 支出' : '總支出'}</span><b>${money(st.expense)}</b></div>
-          <div><span>羽球庫存價值</span><b>${money(stockValue)}</b></div>
+          <div><span>${season ? '本季收入' : '總收入'}</span><b>${money(st.income)}</b></div>
+          <div><span>${season ? '本季支出' : '總支出'}</span><b>${money(st.expense)}</b></div>
+          <div><span>庫存價值</span><b>${money(stockValue)}</b></div>
         </div>
         ${stockValue ? `<div class="balance-total">公款餘額 + 羽球庫存 共 <b>${money(all.balance + stockValue)}</b></div>` : ''}
       </div>
       <div class="stat-grid">
-        <div class="stat"><div class="k">羽球庫存(${stock.open ? `期初 ${stock.open} / ` : ''}買 ${stock.bought} / 用 ${stock.used})</div>
+        <button class="stat" id="fin-unpaid" type="button"><div class="k">待收臨打費</div>
+          <div class="v ${unpaid ? 'out' : ''}" style="font-size:17px">${money(unpaid)}</div></button>
+        <div class="stat"><div class="k">羽球庫存</div>
           <div class="v ${stock.left < 6 ? 'out' : ''}">${stock.left}<span style="font-size:12px"> 顆</span></div></div>
-        <div class="stat"><div class="k">${esc((Shuttles.current() || {}).name || '單顆成本')}</div>
-          <div class="v" style="font-size:15px">${Shuttles.unitLabel()}<span style="font-size:12px"> /顆</span></div></div>
-        <div class="stat"><div class="k">待收臨打費</div><div class="v ${this.unpaidGuest() ? 'out' : ''}" style="font-size:15px">${money(this.unpaidGuest())}</div></div>
+        <div class="stat"><div class="k">${season ? '本季淨額' : '總淨額'}</div>
+          <div class="v ${st.balance >= 0 ? 'in' : 'out'}" style="font-size:17px">${st.balance >= 0 ? '+' : '−'}${money(Math.abs(st.balance))}</div></div>
       </div>
       ${this.chartHtml(activity)}
       ${this.stockHtml()}
       ${this.seasonPayHtml()}`;
+
+    /* 待收臨打費點得下去:直接跳到場次頁把未收清單打開,不用自己想去哪裡收 */
+    const unpaidBtn = document.getElementById('fin-unpaid');
+    if (unpaidBtn) unpaidBtn.addEventListener('click', () => {
+      if (!unpaid) { toast('臨打費都收齊了'); return; }
+      switchPage('sessions');
+      Sessions.unpaidOpen = true;
+      Sessions.renderUnpaid();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
 
     const box = document.getElementById('finance-list');
     const empty = document.getElementById('finance-empty');
     const list = this.filter === 'all' ? rows : rows.filter(r => r.kind === this.filter);
     empty.classList.toggle('hidden', list.length > 0);
 
-    box.innerHTML = list.map((r, i) => `
+    /* 流水帳按月分段:帳目越記越長,一整串卡片沒有段落很難掃,
+     * 每段標題順便給那個月的淨額(這個月到底有沒有虧)。 */
+    let curMonth = '';
+    box.innerHTML = list.map((r, i) => {
+      let head = '';
+      const m = monthOf(r.date);
+      if (m !== curMonth) {
+        curMonth = m;
+        const t = this.totals(list.filter(x => monthOf(x.date) === m));
+        const [y, mo] = m.split('-');
+        head = `<div class="ledger-month"><span>${y} 年 ${+mo} 月</span>
+          <span class="lm-net ${t.balance >= 0 ? 'in' : 'out'}">${t.balance >= 0 ? '+' : '−'}${money(Math.abs(t.balance))}</span></div>`;
+      }
+      return head + `
       <button class="row-card ${r.kind === 'in' ? 'in-left' : 'out-left'}" data-i="${i}">
+        <span class="led-icon">${icon(this.catIcon(r.cat), '', 18)}</span>
         <div class="row-main">
           <div class="row-title" style="font-size:15px">${esc(r.cat)}
             ${r.cat === this.OPENING_CAT ? '<span class="chip off">設定值</span>'
@@ -267,7 +305,8 @@ const Finance = {
         <div class="row-right">
           <div class="row-amount ${r.kind}">${r.kind === 'in' ? '+' : '−'}${money(r.amount)}</div>
         </div>
-      </button>`).join('');
+      </button>`;
+    }).join('');
 
     box.querySelectorAll('.row-card').forEach(el =>
       el.addEventListener('click', () => {
@@ -278,6 +317,17 @@ const Finance = {
         else if (r.src === 'payment') Seasons.openEditPayment(r.srcId);
       }));
   },
+
+  /* 流水帳每一列左邊的分類圖示:一整排同樣大小的方塊比純文字好掃,
+   * 也不用讀完分類名稱就知道這筆大概是什麼(球、場地、人、錢)。
+   * 沒對到的分類退回錢包圖示。 */
+  CAT_ICONS: {
+    季費: 'coins', 臨打費: 'coins', '贊助 / 補助': 'coins', 其他收入: 'coins',
+    買球: 'shuttle', 場地費: 'wallet', 冷氣費: 'wallet', 場地季繳: 'wallet',
+    '團服 / 器材': 'sliders', 聚餐: 'users', 其他支出: 'wallet', 期初餘額: 'wallet',
+  },
+
+  catIcon(cat) { return this.CAT_ICONS[cat] || 'wallet'; },
 
   /* 所有場次裡還沒跟臨打球友收到的錢 */
   unpaidGuest() {

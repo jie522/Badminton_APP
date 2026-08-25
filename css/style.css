@@ -397,14 +397,22 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .chart-legend i.out { background: var(--out); }
 .chart-bars { display: flex; align-items: flex-end; gap: 6px; }
 .cbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
-.cbar-stack { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 84px; width: 100%; }
+.cbar-stack { display: flex; align-items: flex-end; justify-content: center; gap: 4px; height: 84px; width: 100%; }
+/* 每根長條坐在一條等高的淺色軌道裡:空的月份也看得出位置,長短比較有基準 */
+.cbar-stack .ct {
+  position: relative; display: block; width: 11px; height: 100%;
+  background: var(--bg); border-radius: 4px; overflow: hidden;
+}
 .cbar-stack i {
-  display: block; width: 10px; min-height: 3px; border-radius: 3px 3px 0 0;
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: block; min-height: 3px; border-radius: 4px;
   transition: height .3s ease;
 }
 .cbar-stack i.in { background: var(--in); }
 .cbar-stack i.out { background: var(--out); }
 .cbar .m { font-size: 10px; color: var(--text2); white-space: nowrap; }
+/* 這個月:月份標籤加深加粗,一眼知道最右邊那根是現在 */
+.cbar.now .m { color: var(--text); font-weight: 800; }
 .cbar .net { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cbar .net.in { color: var(--in); }
 .cbar .net.out { color: var(--out); }
@@ -771,4 +779,52 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; margin-lef
   width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   background: var(--accent-soft); color: var(--accent);
+}
+
+/* ============ 收支頁 ============ */
+/* 餘額卡的標題行:圖示 + 標題,餘額是負的時候右邊補一個「透支」標籤
+ * (漸層底上不能用紅色字,看不清楚,改用半透明白底的小標籤) */
+.balance-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.balance-head .k { display: inline-flex; align-items: center; gap: 5px; }
+.balance-tag {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .04em;
+  background: rgba(255,255,255,.22); border-radius: 999px; padding: 3px 9px;
+}
+/* 三個小計改成等寬三欄 + 分隔線:原本用 flex + wrap,窄螢幕上會掉行變成 2+1 很醜 */
+.balance-sub {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0; margin-top: 16px; font-size: 12px;
+}
+.balance-sub > div { padding-left: 10px; border-left: 1px solid rgba(255,255,255,.22); min-width: 0; }
+.balance-sub > div:first-child { padding-left: 0; border-left: none; }
+.balance-sub b { display: block; font-size: 15.5px; margin-top: 2px; }
+
+/* 可點的統計格(待收臨打費 → 跳到場次頁的未收清單) */
+button.stat { display: block; }
+
+/* 可收合的卡片(羽球庫存明細) */
+.chart-card.fold { padding-bottom: 12px; }
+.chart-card.fold > summary { list-style: none; cursor: pointer; margin-bottom: 0; }
+.chart-card.fold > summary::-webkit-details-marker { display: none; }
+.chart-card.fold[open] > summary { margin-bottom: 12px; }
+.chart-card.fold .chart-title .hint { font-weight: 600; margin-left: 4px; }
+.fold-arrow { color: var(--text2); display: flex; transition: transform .18s ease; }
+.chart-card.fold[open] .fold-arrow { transform: rotate(90deg); }
+
+/* 流水帳的月份分段標題 */
+.ledger-month {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 0 4px; margin-top: 6px;
+  font-size: 12px; font-weight: 700; color: var(--text2); letter-spacing: .02em;
+}
+.card-list > .ledger-month:first-child { margin-top: 0; }
+.lm-net { font-variant-numeric: tabular-nums; }
+.lm-net.in { color: var(--in); }
+.lm-net.out { color: var(--out); }
+
+/* 流水帳左邊的分類圖示方塊:中性色,不跟左邊的收入/支出色帶搶顏色 */
+.led-icon {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); color: var(--text2);
 }
