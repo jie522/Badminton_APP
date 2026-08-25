@@ -9,7 +9,9 @@ const Sessions = {
   draft: null,
   isEdit: false,
   guestGender: 'M',   // 臨打報到時的男/女切換,加入一位後保持不變(一群女生一起來時不用每次重切)
-  unpaidOpen: false,  // 未收款橫條有沒有展開
+  unpaidOpen: false,     // 未收款橫條有沒有展開
+  unsettledOpen: false,  // 未結算橫條有沒有展開
+  gsugOpen: false,       // 臨打名字的下拉選單開著沒(輸入框有焦點時就開)
   MAX_HEAD: 8,        // 每場出席上限(季打 + 臨打合計),場地一次只夠這麼多人
 
   list() { return Store.load('sessions', []); },
@@ -58,6 +60,7 @@ const Sessions = {
 
   /* ---------- 清單 ---------- */
   render() {
+    this.renderUnsettled();
     this.renderUnpaid();
 
     const box = document.getElementById('session-list');
@@ -96,12 +99,14 @@ const Sessions = {
         ? `<img class="date-tile session-thumb" src="${esc(Sync.photoUrl(cover.id, 120))}" alt="" loading="lazy"
              onerror="Sessions.thumbFallback(this, ${esc(JSON.stringify(d.md))}, ${esc(JSON.stringify(d.wd))})">`
         : `<div class="date-tile"><b>${esc(d.md)}</b><span>${esc(d.wd)}</span></div>`;
-      return `<button class="row-card" data-id="${esc(s.id)}">
+      /* 未結算的場次整張卡片標出來(左邊警示色帶 + 有顏色的徽章),
+       * 原本只有一個灰色小徽章,在一長串紀錄裡幾乎看不到 */
+      return `<button class="row-card${this.isSettled(s) ? '' : ' warn-left'}" data-id="${esc(s.id)}">
         ${leftTile}
         <div class="row-main">
           <div class="row-title">${cover ? `<span class="row-date">${esc(d.md)}</span>` : ''}${esc(s.venue || '打球')}
             ${c.guestUnpaid ? `<span class="chip unpaid">有人未付</span>` : ''}
-            ${this.isSettled(s) ? '' : `<span class="chip off">未結算</span>`}
+            ${this.isSettled(s) ? '' : `<span class="chip pending">${icon('wallet', '', 11)}未結算</span>`}
           </div>
           <div class="row-sub">季打 ${c.seasonCount} · 臨打 ${c.guestCount} · 用球 ${c.shuttles} 顆${c.use.length > 1 ? `(${c.use.length} 種)` : ''}${s.time ? ' · ' + esc(s.time) : ''}${photos ? ' · 照片 ' + photos : ''}</div>
         </div>
@@ -137,6 +142,57 @@ const Sessions = {
         if (!g.paid && num(g.fee) > 0) rows.push({ sid: s.id, mid: g.mid, fee: num(g.fee), date: s.date });
       }));
     return rows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  },
+
+  /* ---------- 還沒結算的場次 ----------
+   * 「結算這場」按了沒,原本只靠卡片上一個灰色小徽章,滑過去很容易漏掉。
+   * 比照「有人未付」的做法,在場次頁最上面放一條可展開的提示條:
+   * 有幾場沒結算、點開列出來、直接開那一場去按結算。
+   * 判斷一律走 isSettled()(只有明確是 false 才算未結算),
+   * 舊場次沒有這個欄位,一律當已結算,不然整份歷史紀錄會全部跑進這裡。
+   */
+  unsettledRows() {
+    return this.list().filter(s => !this.isSettled(s)).sort(byDateDesc);
+  },
+
+  renderUnsettled() {
+    const bar = document.getElementById('unsettled-bar');
+    const listBox = document.getElementById('unsettled-list');
+    if (!bar || !listBox) return;
+
+    const rows = this.unsettledRows();
+    if (!rows.length) {
+      bar.classList.add('hidden');
+      listBox.classList.add('hidden');
+      this.unsettledOpen = false;
+      return;
+    }
+
+    bar.classList.remove('hidden');
+    bar.classList.toggle('open', this.unsettledOpen);
+    bar.innerHTML = `
+      <span class="a-icon">${icon('wallet', '', 18)}</span>
+      <span class="a-text">還有 ${rows.length} 場沒結算</span>
+      <span class="a-arrow">${icon('chevron', '', 16)}</span>`;
+    bar.onclick = () => {
+      this.unsettledOpen = !this.unsettledOpen;
+      this.renderUnsettled();
+    };
+
+    listBox.classList.toggle('hidden', !this.unsettledOpen);
+    if (!this.unsettledOpen) return;
+
+    listBox.innerHTML = rows.map(s => {
+      const c = this.calc(s);
+      return `<div class="guest-row" data-id="${esc(s.id)}">
+        <span class="g-name"><span class="g-nm">${esc(shortDate(s.date))} ${esc(s.venue || '打球')}</span></span>
+        <span class="g-when">${c.head} 人</span>
+        <button class="g-paid" type="button">去結算</button>
+      </div>`;
+    }).join('');
+
+    listBox.querySelectorAll('.g-paid').forEach(btn =>
+      btn.addEventListener('click', () => this.openEdit(btn.closest('.guest-row').dataset.id)));
   },
 
   renderUnpaid() {
@@ -264,7 +320,6 @@ const Sessions = {
   renderForm() {
     const d = this.draft;
     const c = cfg();
-    const guestNames = Members.list().filter(m => m.type === 'guest').map(m => m.name);
     const hasSeason = this.seasonMembers().length > 0;
 
     document.getElementById('sess-form').innerHTML = `
@@ -296,12 +351,13 @@ const Sessions = {
         <h3>臨打球友 <span class="hint">(男 ${money(c.guestFeeM)} / 女 ${money(c.guestFeeF)})</span></h3>
         <div id="ss-guests"></div>
         <div class="inline-add">
-          <input type="text" id="ss-gname" list="guest-names" placeholder="臨打球友名字" autocomplete="off">
+          <input type="text" id="ss-gname" placeholder="打名字找人,或直接新增" autocomplete="off">
           <button class="btn small" id="ss-ggender" type="button" data-g="${this.guestGender}">${GENDER[this.guestGender]}</button>
           <button class="btn small" id="ss-gadd" type="button">＋ 加入</button>
         </div>
-        <p class="hint" style="margin-top:6px">新朋友第一次來,先切男 / 女再加入,單場費會自動帶。名字打過的直接選就好。</p>
-        <datalist id="guest-names">${guestNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+        <div class="sug-list hidden" id="ss-gsug"></div>
+        <p class="hint" style="margin-top:6px">點輸入框會列出常來的臨打球友(打字可以篩選),點一下就加入。
+        名單上沒有的新朋友,打名字、切好男 / 女再按「加入」,單場費會自動帶。</p>
       </div>
 
       <div class="form-section settle-section">
@@ -360,10 +416,26 @@ const Sessions = {
       this.guestGender = gBtn.dataset.g === 'M' ? 'F' : 'M';
       gBtn.dataset.g = this.guestGender;
       gBtn.textContent = GENDER[this.guestGender];
+      this.renderGuestSuggest();   // 「新增這個人」那列要跟著換男/女和單場費
     });
     document.getElementById('ss-gadd').addEventListener('click', () => this.addGuest());
-    document.getElementById('ss-gname').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); this.addGuest(); }
+
+    const gName = document.getElementById('ss-gname');
+    gName.addEventListener('focus', () => { this.gsugOpen = true; this.renderGuestSuggest(); });
+    gName.addEventListener('input', () => { this.gsugOpen = true; this.renderGuestSuggest(); });
+    gName.addEventListener('blur', () => {
+      /* 點清單那一下是 mousedown(見 renderGuestSuggest),blur 之後才收起來不影響選取 */
+      setTimeout(() => { this.gsugOpen = false; this.renderGuestSuggest(); }, 120);
+    });
+    gName.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        /* 打了字剛好只剩一個人符合 → 直接加他,不用再點一下 */
+        const hits = this.guestCandidates(gName.value);
+        if (gName.value.trim() && hits.length === 1) this.addGuestById(hits[0].m.id);
+        else this.addGuest();
+      }
+      if (e.key === 'Escape') { this.gsugOpen = false; this.renderGuestSuggest(); }
     });
 
     const up = document.getElementById('ss-upload');
@@ -608,6 +680,76 @@ const Sessions = {
     });
   },
 
+  /* ---------- 臨打名字的下拉選單 ----------
+   * 原本只有 <datalist>:手機上不一定叫得出來,叫出來也不知道這個名字是誰(沒有性別、沒有來過幾次)。
+   * 改成自己畫的建議清單 —— 點輸入框就列出常來的人(來過越多次排越前面),
+   * 打字用 Members.matchesQuery() 篩選(名字 / 電話 / 備註都比對得到),點一下就加入。
+   * 已經在這場名單裡的人不會出現,不用擔心重複加。
+   */
+  guestCandidates(q) {
+    const counts = {};
+    this.list().forEach(s => (s.guests || []).forEach(g => { counts[g.mid] = (counts[g.mid] || 0) + 1; }));
+    const taken = new Set(this.draft.guests.map(g => g.mid));
+    const key = String(q || '').trim().toLowerCase();
+    return Members.list()
+      .filter(m => m.type === 'guest' && m.active !== false && !taken.has(m.id))
+      .filter(m => !key || Members.matchesQuery(m, key))
+      .sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0) || a.name.localeCompare(b.name, 'zh-Hant'))
+      .map(m => ({ m, times: counts[m.id] || 0 }));
+  },
+
+  renderGuestSuggest() {
+    const box = document.getElementById('ss-gsug');
+    const input = document.getElementById('ss-gname');
+    if (!box || !input) return;
+    const q = input.value.trim();
+    if (!this.gsugOpen) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+
+    const rows = this.guestCandidates(q).slice(0, 8);
+    /* 打的名字在名單裡找不到 → 給一列「新增這個人」,不用再去按旁邊的「加入」 */
+    const exact = q && Members.list().some(m => m.name.trim() === q);
+    const newRow = q && !exact
+      ? `<button class="sug-row new" type="button" data-new="1">
+           <span class="sug-plus">${icon('plus', '', 16)}</span>
+           <span class="sug-nm">新增「${esc(q)}」為臨打球友</span>
+           <span class="sug-meta">${GENDER[this.guestGender]} ${money(this.guestGender === 'F' ? cfg().guestFeeF : cfg().guestFeeM)}</span>
+         </button>`
+      : '';
+
+    if (!rows.length && !newRow) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<p class="hint" style="margin:0;padding:8px 10px">${q ? '找不到符合的臨打球友' : '還沒有臨打球友,直接打名字新增'}</p>`;
+      return;
+    }
+
+    box.classList.remove('hidden');
+    box.innerHTML = rows.map(({ m, times }) => `
+      <button class="sug-row" type="button" data-mid="${esc(m.id)}">
+        ${avatarHtml(m.name, 'sm', m.avatarId)}
+        <span class="sug-nm">${esc(m.name)}</span>
+        <span class="chip ${genderOf(m) === 'F' ? 'guest' : 'off'}">${GENDER[genderOf(m)]}</span>
+        <span class="sug-meta">${times ? `來過 ${times} 次 · ` : ''}${money(guestFeeOf(m))}</span>
+      </button>`).join('') + newRow;
+
+    box.querySelectorAll('.sug-row').forEach(el =>
+      /* 用 mousedown + preventDefault:直接綁 click 的話,手指離開輸入框時會先觸發 blur
+       * 把清單收起來,那一下就點空了 */
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        if (el.dataset.new) this.addGuest();
+        else this.addGuestById(el.dataset.mid);
+      }));
+  },
+
+  /* 從下拉選單挑一位已經在名單裡的臨打球友加進這場 */
+  addGuestById(mid) {
+    const m = Members.byId(mid);
+    if (!m) return;
+    if (this.headCount() >= this.MAX_HEAD) { toast(`每場最多 ${this.MAX_HEAD} 位,已達上限`); return; }
+    if (this.draft.guests.some(g => g.mid === m.id)) { toast(`${m.name} 已經在名單裡了`); return; }
+    this.pushGuest(m);
+  },
+
   addGuest() {
     const input = document.getElementById('ss-gname');
     const name = input.value.trim();
@@ -615,7 +757,11 @@ const Sessions = {
     if (this.headCount() >= this.MAX_HEAD) { toast(`每場最多 ${this.MAX_HEAD} 位,已達上限`); return; }
     const m = Members.ensureGuest(name, this.guestGender);
     if (this.draft.guests.some(g => g.mid === m.id)) { toast(`${name} 已經在名單裡了`); input.value = ''; return; }
+    this.pushGuest(m);
+  },
 
+  /* 加一位臨打進 draft 並補上那一列(不整段重畫,正在輸入的欄位不會失焦) */
+  pushGuest(m) {
     /* 新加入的臨打球友預設未收:報到時通常還沒付錢,收到才手動標記 */
     const g = { mid: m.id, fee: guestFeeOf(m), paid: false };
     this.draft.guests.push(g);
@@ -624,15 +770,11 @@ const Sessions = {
     box.insertAdjacentHTML('beforeend', this.guestRowHtml(g));
     this.bindGuestRow(box.lastElementChild);
 
-    /* 剛建的新球友也要能在下次輸入時被選到 */
-    const dl = document.getElementById('guest-names');
-    if (dl && !dl.querySelector(`option[value="${CSS.escape(m.name)}"]`)) {
-      dl.insertAdjacentHTML('beforeend', `<option value="${esc(m.name)}">`);
-    }
-
+    const input = document.getElementById('ss-gname');
     input.value = '';
     input.focus();
     haptic();
+    this.renderGuestSuggest();   // 剛加進來的人要從清單上消失
     this.syncCap();
     this.invalidateSettle();
   },

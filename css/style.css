@@ -255,14 +255,17 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
   color: var(--text); text-align: left;
   position: relative; overflow: hidden;
 }
-/* 收支列左邊那條收入 / 支出色帶(用 ::before 而不是 border,圓角才不會被切平) */
-.row-card.in-left::before, .row-card.out-left::before {
+/* 收支列左邊那條收入 / 支出色帶(用 ::before 而不是 border,圓角才不會被切平)
+ * warn-left 是同一套做法,給「還沒結算的場次」用 */
+.row-card.in-left::before, .row-card.out-left::before, .row-card.warn-left::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
 }
 .row-card.in-left { padding-left: 16px; }
 .row-card.out-left { padding-left: 16px; }
+.row-card.warn-left { padding-left: 16px; background: var(--warn-soft); border-color: var(--warn); }
 .row-card.in-left::before { background: var(--in); }
 .row-card.out-left::before { background: var(--out); }
+.row-card.warn-left::before { background: var(--warn); }
 
 /* 場次卡左邊的日期方塊:比一行文字好掃描 */
 .date-tile {
@@ -329,6 +332,11 @@ main { padding: 0 14px; max-width: 720px; margin: 0 auto; }
 .chip.unpaid { background: var(--out-soft); color: var(--out); }
 .chip.paid { background: var(--in-soft); color: var(--in); }
 .chip.off { background: var(--bg); color: var(--text2); }
+/* 還沒結算:警示色,而且要看得到圖示(灰色小徽章在一長串卡片裡等於隱形) */
+.chip.pending {
+  background: var(--warn); color: var(--card);
+  display: inline-flex; align-items: center; gap: 3px;
+}
 
 /* ============ 統計格 ============ */
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 2px 0 14px; }
@@ -736,4 +744,31 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; margin-lef
 .chip.leader {
   background: var(--accent); color: var(--card);
   display: inline-flex; align-items: center; gap: 3px;
+}
+
+/* ============ 臨打名字的下拉建議清單 ============
+ * 取代 <datalist>:手機上叫得出來、看得到是誰(頭像 / 性別 / 來過幾次 / 單場費)。
+ * 最多列 8 個人,超過就在清單內捲動,不把下面的結算區推走。
+ */
+.sug-list {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); margin-top: 6px;
+  max-height: 232px; overflow-y: auto; box-shadow: var(--shadow);
+}
+.sug-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  background: none; border: none; border-bottom: 1px solid var(--hairline);
+  padding: 7px 10px; min-height: 44px; color: var(--text);
+}
+.sug-row:last-child { border-bottom: none; }
+.sug-row:active { background: var(--bg); }
+.sug-nm { flex: 1; min-width: 0; font-size: 14px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sug-meta { font-size: 11px; color: var(--text2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.sug-row.new { color: var(--accent); }
+.sug-row.new .sug-nm { font-weight: 700; }
+.sug-plus {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent);
 }
