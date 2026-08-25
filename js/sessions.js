@@ -356,8 +356,6 @@ const Sessions = {
           <button class="btn small" id="ss-gadd" type="button">＋ 加入</button>
         </div>
         <div class="sug-list hidden" id="ss-gsug"></div>
-        <p class="hint" style="margin-top:6px">點輸入框會列出常來的臨打球友(打字可以篩選),點一下就加入。
-        名單上沒有的新朋友,打名字、切好男 / 女再按「加入」,單場費會自動帶。</p>
       </div>
 
       <div class="form-section settle-section">
