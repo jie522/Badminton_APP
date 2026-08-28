@@ -800,7 +800,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; margin-lef
 .balance-sub b { display: block; font-size: 15.5px; margin-top: 2px; }
 
 /* 可點的統計格(待收臨打費 → 跳到場次頁的未收清單) */
-button.stat { display: block; }
+button.stat { display: block; color: var(--text); }   /* 沒指定顏色的話 <button> 會吃瀏覽器預設字色:iOS 上是藍色、Chrome 深色模式是黑色 */
 
 /* 可收合的卡片(羽球庫存明細) */
 .chart-card.fold { padding-bottom: 12px; }
