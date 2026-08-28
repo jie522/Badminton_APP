@@ -290,8 +290,35 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+/* ---------- 版本 ----------
+ * 設定頁的「關於」顯示這支手機**實際載到**的版本(讀 <script src="js/app.js?v=…"> 上的日期,
+ * 不是寫死的字串),這樣「改好了但手機上沒變」時,一眼就知道是不是還在吃舊快取。
+ * 旁邊的「重新載入最新版」會清掉 Service Worker 的快取再硬重整,不用教人怎麼清瀏覽器資料。
+ */
+function appVersion() {
+  const src = (document.querySelector('script[src*="app.js"]') || {}).src || '';
+  const m = src.match(/[?&]v=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : '—';
+}
+
+function showVersion() {
+  const el = document.getElementById('app-version');
+  if (el) el.textContent = appVersion();
+  const btn = document.getElementById('force-reload');
+  if (btn) btn.addEventListener('click', async () => {
+    try {
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch { /* 清不掉就直接重整,網路正常時一樣會拿到新的 */ }
+    location.reload();
+  });
+}
+
 /* ---------- 啟動 ---------- */
 migrate();                            // 舊資料補上新欄位(性別、男女兩價)
+showVersion();
 Theme.apply();                        // 深淺色和主題色
 hydrateIcons();                       // 把 data-icon 換成線條 SVG
 loadThemeForm();
