@@ -204,16 +204,23 @@ const Finance = {
    * diff 是季末結餘跟上一季比多了多少。 */
   seasonHistory() {
     const rows = this.ledger();
+    const today = todayStr();
     const list = [...Seasons.list()].sort((a, b) => String(a.start).localeCompare(String(b.start)));
     return list
       .map(s => {
-        /* 還沒結束的這一季,「季末」就是現在(end 是未來的日期,等於全部都算進來) */
+        const start = s.start || '';
         const end = s.end || '9999';
+        /* past 已經結束(季末餘額就此凍結)/ now 進行中(算到今天為止,還會再變)
+         * / future 還沒開始(連第一天都還沒到,不該有「季末結餘」—— 不擋的話
+         *   下一季會直接顯示今天的餘額,跟進行中的這一季長得一模一樣) */
+        const status = start > today ? 'future' : end < today ? 'past' : 'now';
+        const at = end < today ? end : today;
         const own = this.seasonRows(s, rows);
-        const endCash = this.balanceAt(end, rows);
-        const endStock = Shuttles.stockValue(end);
-        return { s, n: own.length, ...this.totals(own), endCash, endStock, endTotal: endCash + endStock };
+        const endCash = this.balanceAt(at, rows);
+        const endStock = Shuttles.stockValue(at);
+        return { s, status, n: own.length, ...this.totals(own), endCash, endStock, endTotal: endCash + endStock };
       })
+      .filter(x => x.status !== 'future')
       /* 開始用這個 App 之前就結束的季別會是「沒有任何帳、公款也是 0」——
        * 那種只剩羽球期初庫存的空殼列不用畫出來(期初數量沒有日期,每一季都算得到它) */
       .filter(x => x.n > 0 || x.endCash !== 0)
@@ -244,6 +251,7 @@ const Finance = {
         <span class="chart-title">各季結餘</span>
         <span class="chart-legend"><span>季末公款 + 羽球庫存</span></span>
       </div>
+      <p class="hint" style="margin:-6px 0 12px">季別結束後這個數字就固定不動了;進行中的這一季算到今天為止,還沒開始的季別不列出來。</p>
       <div class="chart-bars">
         ${bars.map(h => {
           /* 長條的顏色看的是「跟上一季比有沒有成長」,不是金額正負 ——
@@ -263,8 +271,9 @@ const Finance = {
         ${[...hist].reverse().map(h => `
           <button class="row-card ${h.diff === null || h.diff >= 0 ? 'in-left' : 'out-left'}" data-season="${esc(h.s.id)}">
             <div class="row-main">
-              <div class="row-title" style="font-size:15px">${esc(h.s.name)}</div>
-              <div class="row-sub">公款 ${money(h.endCash)} + 庫存 ${money(h.endStock)}<br>
+              <div class="row-title" style="font-size:15px">${esc(h.s.name)}
+                ${h.status === 'now' ? '<span class="chip">進行中</span>' : ''}</div>
+              <div class="row-sub">${h.status === 'now' ? '目前' : '季末'}公款 ${money(h.endCash)} + 庫存 ${money(h.endStock)}<br>
                 這季收 ${money(h.income)} · 支 ${money(h.expense)} · 淨 <b class="${h.balance >= 0 ? 'lm-net in' : 'lm-net out'}">${signed(h.balance)}</b></div>
             </div>
             <div class="row-right">
