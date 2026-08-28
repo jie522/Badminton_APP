@@ -64,6 +64,12 @@ const Finance = {
     const rows = [];
 
     Sessions.list().forEach(s => {
+      /* 還沒按「結算這場」的場次完全不進公款帳:冷氣費、臨打收入都先不算。
+       * 「結算」的意思就是「這場的錢我確認過了」,確認之前的金額還會變
+       * (改冷氣費、加人、改單場費都會把 settled 打回 false),
+       * 讓它先進帳會使公款餘額跟著一場還沒確認的資料上上下下。
+       * 舊場次沒有 settled 欄位,isSettled() 一律當已結算,歷史數字不受影響。 */
+      if (!Sessions.isSettled(s)) return;
       const c = Sessions.calc(s);
       if (c.courtFee) rows.push({   // 舊制場地費,只有舊資料才會有(場地費已改季繳)
         date: s.date, kind: 'out', cat: '場地費', amount: c.courtFee,

@@ -172,7 +172,7 @@ const Sessions = {
     bar.classList.toggle('open', this.unsettledOpen);
     bar.innerHTML = `
       <span class="a-icon">${icon('wallet', '', 18)}</span>
-      <span class="a-text">還有 ${rows.length} 場沒結算</span>
+      <span class="a-text">還有 ${rows.length} 場沒結算 · 這幾場的錢還沒算進公款</span>
       <span class="a-arrow">${icon('chevron', '', 16)}</span>`;
     bar.onclick = () => {
       this.unsettledOpen = !this.unsettledOpen;
@@ -794,7 +794,8 @@ const Sessions = {
       if (badge) { badge.className = 'sess-net pending'; badge.textContent = '未結算'; }
       document.getElementById('ss-settle').innerHTML = `
         <p class="hint">冷氣費和臨打球友的費用還沒結算。金額、已收 / 未收都填好、勾好之後,
-        按下面按鈕才會算出這場賺賠多少。</p>
+        按下面按鈕才會算出這場賺賠多少。<b>結算之前這場的錢不會算進公款餘額</b>
+        (冷氣費和臨打收入都是,按下結算才一起入帳)。</p>
         <button class="btn primary block" id="ss-do-settle" type="button">${icon('wallet', '', 16)} 結算這場</button>`;
       const btn = document.getElementById('ss-do-settle');
       if (btn) btn.addEventListener('click', () => this.doSettle());

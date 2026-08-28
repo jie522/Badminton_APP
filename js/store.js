@@ -17,7 +17,9 @@
  *                        shuttleUse:[{sid, n}],   ← 這場哪一種球用了幾顆(sid 空字串 = 未指定球種)
  *                        attendees:[memberId], guests:[{mid, fee, paid}],
  *                        settled,    ← 「冷氣費、臨打費都確認過了」。按下場次表單的「結算這場」才變 true,
- *                                       改到冷氣費 / 臨打金額 / 已收未收 會變回 false(要重新確認一次)
+ *                                       改到冷氣費 / 臨打金額 / 已收未收 會變回 false(要重新確認一次)。
+ *                                       **沒結算的場次不進 Finance.ledger()**,冷氣費和臨打收入
+ *                                       都要按下結算才算進公款餘額
  *                        note, photos:[{id, caption}], createdAt }
  *   shuttles 羽球品項   { id, name, balls, price, current,
  *                        photoId,    ← 這種球的參考照片(球盒/包裝),單張,沒上傳就顯示球拍圖示
