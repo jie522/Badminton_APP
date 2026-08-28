@@ -189,13 +189,36 @@ const Finance = {
     });
   },
 
-  /* 全部季別的結餘,舊 → 新,附上跟上一季比多了多少 */
+  /* 到某一天為止的公款餘額(含期初餘額)。
+   * 這是「現金部位」的快照,所以一律照帳目的實際日期算 —— 跟 seasonRows() 的
+   * 「季費算進它繳的是哪一季」不一樣:提早繳的季費,錢當天就進口袋了,
+   * 那天的餘額本來就該包含它。 */
+  balanceAt(date, rows) {
+    return this.totals((rows || this.ledger()).filter(r => String(r.date) <= (date || '9999'))).balance;
+  },
+
+  /* 全部季別,舊 → 新。每一季給兩組數字:
+   *   end*  季末結餘 —— 那一季結束時手上有多少(公款餘額 + 當時的羽球庫存價值),
+   *                    含前面幾季留下來的錢,一季一季比就是「有沒有正成長」
+   *   收支   這一季自己的收入 / 支出 / 淨額(賺賠),不含前面幾季的結餘
+   * diff 是季末結餘跟上一季比多了多少。 */
   seasonHistory() {
     const rows = this.ledger();
     const list = [...Seasons.list()].sort((a, b) => String(a.start).localeCompare(String(b.start)));
     return list
-      .map(s => ({ s, ...this.totals(this.seasonRows(s, rows)) }))
-      .map((x, i, arr) => ({ ...x, diff: i > 0 ? x.balance - arr[i - 1].balance : null }));
+      .map(s => {
+        /* 還沒結束的這一季,「季末」就是現在(end 是未來的日期,等於全部都算進來) */
+        const end = s.end || '9999';
+        const own = this.seasonRows(s, rows);
+        const endCash = this.balanceAt(end, rows);
+        const endStock = Shuttles.stockValue(end);
+        return { s, n: own.length, ...this.totals(own), endCash, endStock, endTotal: endCash + endStock };
+      })
+      /* 開始用這個 App 之前就結束的季別會是「沒有任何帳、公款也是 0」——
+       * 那種只剩羽球期初庫存的空殼列不用畫出來(期初數量沒有日期,每一季都算得到它) */
+      .filter(x => x.n > 0 || x.endCash !== 0)
+      /* 比較的對象要是「畫得出來的上一季」,所以差額在過濾之後才算 */
+      .map((x, i, arr) => ({ ...x, diff: i > 0 ? x.endTotal - arr[i - 1].endTotal : null }));
   },
 
   /* 各季結餘卡:上面一排長條看趨勢,下面每一季一列(點進去看那一季的明細結算) */
@@ -204,11 +227,13 @@ const Finance = {
     if (!hist.length) return '';
     /* 長條最多畫最近 8 季:再多格子會被擠到月份標籤疊在一起(下面的列表還是全部都列) */
     const bars = hist.slice(-8);
-    const max = Math.max(1, ...bars.map(h => Math.abs(h.balance)));
+    const max = Math.max(1, ...bars.map(h => Math.abs(h.endTotal)));
+    /* 17,740 → 17.7k;長條上面站不下完整金額,完整數字在下面每一季那一列 */
     const compact = n => {
       const a = Math.abs(n);
-      return (n < 0 ? '−' : '+') + (a >= 1000 ? (Math.round(a / 100) / 10) + 'k' : a);
+      return (n < 0 ? '−' : '') + (a >= 1000 ? (Math.round(a / 100) / 10) + 'k' : a);
     };
+    const signed = n => (n >= 0 ? '+' : '−') + money(Math.abs(n));
     /* 長條的標籤只放年月(2026-07 → 26/7),季別全名放下面那一列,格子才站得下 */
     const tick = s => {
       const m = String(s.start || '').match(/^(\d{2})(\d{2})-(\d{2})/);
@@ -217,29 +242,34 @@ const Finance = {
     return `<div class="chart-card">
       <div class="chart-head">
         <span class="chart-title">各季結餘</span>
-        <span class="chart-legend"><span>整季收入 − 整季支出</span></span>
+        <span class="chart-legend"><span>季末公款 + 羽球庫存</span></span>
       </div>
       <div class="chart-bars">
-        ${bars.map(h => `<div class="cbar">
-          <span class="net ${h.balance >= 0 ? 'in' : 'out'}">${compact(h.balance)}</span>
-          <div class="cbar-stack">
-            <span class="ct"><i class="${h.balance >= 0 ? 'in' : 'out'}"
-              style="height:${(Math.abs(h.balance) / max * 100).toFixed(1)}%"></i></span>
-          </div>
-          <span class="m">${esc(tick(h.s))}</span>
-        </div>`).join('')}
+        ${bars.map(h => {
+          /* 長條的顏色看的是「跟上一季比有沒有成長」,不是金額正負 ——
+           * 這張圖要回答的問題是「有沒有一季比一季好」 */
+          const up = h.diff === null || h.diff >= 0;
+          return `<div class="cbar">
+            <span class="net ${up ? 'in' : 'out'}">${compact(h.endTotal)}</span>
+            <div class="cbar-stack">
+              <span class="ct"><i class="${up ? 'in' : 'out'}"
+                style="height:${(Math.abs(h.endTotal) / max * 100).toFixed(1)}%"></i></span>
+            </div>
+            <span class="m">${esc(tick(h.s))}</span>
+          </div>`;
+        }).join('')}
       </div>
       <div class="card-list" style="margin-top:14px">
         ${[...hist].reverse().map(h => `
-          <button class="row-card ${h.balance >= 0 ? 'in-left' : 'out-left'}" data-season="${esc(h.s.id)}">
+          <button class="row-card ${h.diff === null || h.diff >= 0 ? 'in-left' : 'out-left'}" data-season="${esc(h.s.id)}">
             <div class="row-main">
               <div class="row-title" style="font-size:15px">${esc(h.s.name)}</div>
-              <div class="row-sub">收 ${money(h.income)} · 支 ${money(h.expense)}${
-                h.diff === null ? '' : ` · 較上季 <b class="${h.diff >= 0 ? 'lm-net in' : 'lm-net out'}">${h.diff >= 0 ? '+' : '−'}${money(Math.abs(h.diff))}</b>`}</div>
+              <div class="row-sub">公款 ${money(h.endCash)} + 庫存 ${money(h.endStock)}<br>
+                這季收 ${money(h.income)} · 支 ${money(h.expense)} · 淨 <b class="${h.balance >= 0 ? 'lm-net in' : 'lm-net out'}">${signed(h.balance)}</b></div>
             </div>
             <div class="row-right">
-              <div class="row-amount ${h.balance >= 0 ? 'in' : 'out'}">${h.balance >= 0 ? '+' : '−'}${money(Math.abs(h.balance))}</div>
-              <div class="row-note">${h.diff === null ? '第一季' : h.diff >= 0 ? '比上季好' : '比上季差'}</div>
+              <div class="row-amount ${h.endTotal >= 0 ? 'in' : 'out'}">${money(h.endTotal)}</div>
+              <div class="row-note">${h.diff === null ? '第一季' : `較上季 ${signed(h.diff)}`}</div>
             </div>
           </button>`).join('')}
       </div>

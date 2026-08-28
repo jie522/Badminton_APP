@@ -52,16 +52,21 @@ const Shuttles = {
    * 買進:收支頁「買球」那筆帳的顆數;用掉:各場次用球明細裡這一種的數量。
    * 沒指定球種的舊帳 / 自訂買球,歸到 sid === '' 這一組(沒有期初數量可設)。
    */
-  stock() {
+  /* upto:只算到這一天為止的買進和用掉(給「季末庫存值多少」用,見 Finance.seasonHistory)。
+   * 不傳就是現在的庫存。期初數量不分日期,一律算在內。 */
+  stock(upto) {
     const map = {};
     const touch = sid => (map[sid] = map[sid] || { sid, open: 0, bought: 0, used: 0 });
     this.list().forEach(s => { touch(s.id).open = num(s.openStock); });
     Finance.txns().forEach(t => {
       if (t.cat !== '買球') return;
+      if (upto && String(t.date) > upto) return;
       touch(t.shuttleId || '').bought += num(t.qty);
     });
-    Sessions.list().forEach(s =>
-      (s.shuttleUse || []).forEach(u => { touch(u.sid || '').used += num(u.n); }));
+    Sessions.list().forEach(s => {
+      if (upto && String(s.date) > upto) return;
+      (s.shuttleUse || []).forEach(u => { touch(u.sid || '').used += num(u.n); });
+    });
 
     return Object.values(map)
       .map(r => ({ ...r, left: r.open + r.bought - r.used, name: this.nameOf(r.sid), unit: this.unitPriceOf(r.sid) }))
@@ -98,8 +103,8 @@ const Shuttles = {
   },
 
   /* 目前所有球種的庫存總價值(剩幾顆 × 單價,加總) */
-  stockValue() {
-    return this.stock().reduce((n, r) => n + Math.max(0, r.left) * r.unit, 0);
+  stockValue(upto) {
+    return this.stock(upto).reduce((n, r) => n + Math.max(0, r.left) * r.unit, 0);
   },
 
   /* ---------- 設定頁的球種清單 ---------- */
