@@ -90,7 +90,9 @@ const Finance = {
       rows.push({
         date: p.date, kind: 'in', cat: '季費', amount: num(p.amount),
         note: `${Members.name(p.memberId)}${season ? ' · ' + season.name : ''}`,
-        src: 'payment', srcId: p.id,
+        /* seasonId 要帶著:算「每一季的結餘」時,季費要算進它繳的是哪一季,
+         * 不是算進「繳錢那天落在哪一季」(見 seasonRows) */
+        src: 'payment', srcId: p.id, seasonId: p.seasonId,
       });
     });
 
@@ -169,6 +171,81 @@ const Finance = {
     </div>`;
   },
 
+  /* ---------- 每一季的結餘 ----------
+   * 「這一季到底有沒有賺」是看整季的收支相抵,不是看公款餘額(那含了前面幾季留下來的錢)。
+   * 哪些帳算進這一季:
+   *   季費 —— 算進它「繳的是哪一季」(payment.seasonId),不是繳錢那天落在哪一季。
+   *           下一季的季費常常提早收,用日期切會把收入算到上一季,看起來像上一季特別賺。
+   *   其他 —— 用日期落在季別區間內(場次、買球、聚餐這些發生在哪天就是哪天)。
+   *   期初餘額 —— 一律排除,那是設定值不是這季的活動。
+   * 數字不另外存一份「季結算紀錄」:全部從流水帳即時算,
+   * 之後補記或修正舊場次,那一季的結餘會自動跟著更新,不會有兩份對不起來的數字。
+   */
+  seasonRows(season, rows) {
+    return (rows || this.ledger()).filter(r => {
+      if (r.cat === this.OPENING_CAT) return false;
+      if (r.src === 'payment') return r.seasonId === season.id;
+      return r.date >= (season.start || '') && r.date <= (season.end || '9999');
+    });
+  },
+
+  /* 全部季別的結餘,舊 → 新,附上跟上一季比多了多少 */
+  seasonHistory() {
+    const rows = this.ledger();
+    const list = [...Seasons.list()].sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    return list
+      .map(s => ({ s, ...this.totals(this.seasonRows(s, rows)) }))
+      .map((x, i, arr) => ({ ...x, diff: i > 0 ? x.balance - arr[i - 1].balance : null }));
+  },
+
+  /* 各季結餘卡:上面一排長條看趨勢,下面每一季一列(點進去看那一季的明細結算) */
+  seasonTrendHtml() {
+    const hist = this.seasonHistory();
+    if (!hist.length) return '';
+    /* 長條最多畫最近 8 季:再多格子會被擠到月份標籤疊在一起(下面的列表還是全部都列) */
+    const bars = hist.slice(-8);
+    const max = Math.max(1, ...bars.map(h => Math.abs(h.balance)));
+    const compact = n => {
+      const a = Math.abs(n);
+      return (n < 0 ? '−' : '+') + (a >= 1000 ? (Math.round(a / 100) / 10) + 'k' : a);
+    };
+    /* 長條的標籤只放年月(2026-07 → 26/7),季別全名放下面那一列,格子才站得下 */
+    const tick = s => {
+      const m = String(s.start || '').match(/^(\d{2})(\d{2})-(\d{2})/);
+      return m ? `${m[2]}/${+m[3]}` : '—';
+    };
+    return `<div class="chart-card">
+      <div class="chart-head">
+        <span class="chart-title">各季結餘</span>
+        <span class="chart-legend"><span>整季收入 − 整季支出</span></span>
+      </div>
+      <div class="chart-bars">
+        ${bars.map(h => `<div class="cbar">
+          <span class="net ${h.balance >= 0 ? 'in' : 'out'}">${compact(h.balance)}</span>
+          <div class="cbar-stack">
+            <span class="ct"><i class="${h.balance >= 0 ? 'in' : 'out'}"
+              style="height:${(Math.abs(h.balance) / max * 100).toFixed(1)}%"></i></span>
+          </div>
+          <span class="m">${esc(tick(h.s))}</span>
+        </div>`).join('')}
+      </div>
+      <div class="card-list" style="margin-top:14px">
+        ${[...hist].reverse().map(h => `
+          <button class="row-card ${h.balance >= 0 ? 'in-left' : 'out-left'}" data-season="${esc(h.s.id)}">
+            <div class="row-main">
+              <div class="row-title" style="font-size:15px">${esc(h.s.name)}</div>
+              <div class="row-sub">收 ${money(h.income)} · 支 ${money(h.expense)}${
+                h.diff === null ? '' : ` · 較上季 <b class="${h.diff >= 0 ? 'lm-net in' : 'lm-net out'}">${h.diff >= 0 ? '+' : '−'}${money(Math.abs(h.diff))}</b>`}</div>
+            </div>
+            <div class="row-right">
+              <div class="row-amount ${h.balance >= 0 ? 'in' : 'out'}">${h.balance >= 0 ? '+' : '−'}${money(Math.abs(h.balance))}</div>
+              <div class="row-note">${h.diff === null ? '第一季' : h.diff >= 0 ? '比上季好' : '比上季差'}</div>
+            </div>
+          </button>`).join('')}
+      </div>
+    </div>`;
+  },
+
   /* 這一季的季費收了幾成 */
   seasonPayHtml() {
     const season = Seasons.current();
@@ -235,10 +312,8 @@ const Finance = {
     /* 起始餘額不算「本季」收支,也不放進趨勢圖 —— 它是設定值不是這季發生的活動,
      * 混進去會讓「本季收入」憑空多一筆,金額大的話還會把趨勢圖其他月份的長條壓扁。 */
     const activity = rows.filter(r => r.cat !== this.OPENING_CAT);
-    const seasonRows = season
-      ? activity.filter(r => r.date >= (season.start || '') && r.date <= (season.end || '9999'))
-      : activity;
-    const st = this.totals(seasonRows);
+    /* 「本季」用跟各季結餘同一套規則(季費算進它繳的那一季),不然餘額卡跟下面的卡片會對不起來 */
+    const st = this.totals(season ? this.seasonRows(season, rows) : activity);
     const stock = this.shuttleStock();
     const stockValue = Shuttles.stockValue();
 
@@ -268,8 +343,13 @@ const Finance = {
           <div class="v ${st.balance >= 0 ? 'in' : 'out'}" style="font-size:17px">${st.balance >= 0 ? '+' : '−'}${money(Math.abs(st.balance))}</div></div>
       </div>
       ${this.chartHtml(activity)}
+      ${this.seasonTrendHtml()}
       ${this.stockHtml()}
       ${this.seasonPayHtml()}`;
+
+    /* 各季結餘的每一列 → 打開那一季的明細結算 */
+    document.querySelectorAll('#finance-balance [data-season]').forEach(el =>
+      el.addEventListener('click', () => Seasons.openClosing(el.dataset.season)));
 
     /* 待收臨打費點得下去:直接跳到場次頁把未收清單打開,不用自己想去哪裡收 */
     const unpaidBtn = document.getElementById('fin-unpaid');

@@ -201,9 +201,9 @@ const Seasons = {
   openClosing(id) {
     const s = this.byId(id);
     if (!s) return;
-    const rows = Finance.ledger().filter(r =>
-      r.cat !== Finance.OPENING_CAT && r.date >= (s.start || '') && r.date <= (s.end || '9999'));
-    const t = Finance.totals(rows);
+    /* 哪些帳算這一季走 Finance.seasonRows()(季費算進它繳的那一季,不是繳錢那天),
+     * 跟收支頁的「各季結餘」用同一套規則,兩邊數字才會一致 */
+    const t = Finance.totals(Finance.seasonRows(s));
     const stockRows = Shuttles.stock();
     const stockValue = Shuttles.stockValue();
 
